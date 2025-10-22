@@ -1,0 +1,122 @@
+# Environment Variables
+.env
+.env.local
+.env.*.local
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environment
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+*.cover
+.hypothesis/
+.tox/
+
+# Evidence and Sensitive Data
+evidence_storage/
+evidence_backup/
+mock_data/
+output/
+logs/
+*.log
+
+# Databases
+*.db
+*.sqlite
+*.sqlite3
+data/
+
+# Security
+keys/
+*.key
+*.pem
+*.crt
+*.p12
+
+# Reports
+reports/
+*.pdf
+
+# Temporary Files
+tmp/
+temp/
+*.tmp
+
+# API Keys (additional safety)
+*api_key*
+*secret*
+credentials.json
+
+# Forensic Artifacts (if real evidence accidentally added)
+*.pcap
+*.cap
+*.dump
+*.mem
+*.raw
+
+# Large Files
+*.iso
+*.img
+*.vmdk
+
+# Backup Files
+*.bak
+*.backup
+*~
+
+# OS
+Thumbs.db
+desktop.ini
+
+# Documentation Build
+docs/_build/
+site/
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Profiling
+*.prof

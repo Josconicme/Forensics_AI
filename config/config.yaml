@@ -1,0 +1,327 @@
+# AI-Powered Digital Forensics System Configuration
+
+# Application Settings
+app:
+  name: "ForensicsAI"
+  version: "1.0.0"
+  environment: "development"  # development, staging, production
+  debug: true
+
+# AI Provider Configuration
+ai:
+  provider: "anthropic"  # anthropic or openai
+  
+  # Anthropic (Claude) Settings
+  anthropic:
+    model: "claude-sonnet-4-5-20250929"
+    api_key_env: "ANTHROPIC_API_KEY"
+    max_tokens: 4096
+    temperature: 0.7
+    timeout: 60
+  
+  # OpenAI (GPT) Settings
+  openai:
+    model: "gpt-4-turbo-preview"
+    api_key_env: "OPENAI_API_KEY"
+    max_tokens: 4096
+    temperature: 0.7
+    timeout: 60
+
+# Analysis Configuration
+analysis:
+  max_parallel_agents: 4
+  timeout_seconds: 300
+  confidence_threshold: 0.70
+  enable_correlation: true
+  
+  # Agent-specific settings
+  agents:
+    log_analysis:
+      enabled: true
+      priority: 1
+      patterns:
+        - brute_force
+        - privilege_escalation
+        - lateral_movement
+        - suspicious_commands
+    
+    file_analysis:
+      enabled: true
+      priority: 1
+      max_file_size_mb: 100
+      suspicious_extensions:
+        - .exe
+        - .dll
+        - .bat
+        - .ps1
+        - .vbs
+        - .sh
+    
+    network_analysis:
+      enabled: true
+      priority: 1
+      detect_beaconing: true
+      suspicious_ports:
+        - 4444
+        - 5555
+        - 6666
+        - 8080
+    
+    correlation:
+      enabled: true
+      priority: 2
+      min_events: 2
+      time_window_minutes: 60
+
+# Evidence Storage
+storage:
+  evidence_path: "./evidence_storage"
+  backup_path: "./evidence_backup"
+  max_evidence_size_mb: 100
+  enable_compression: false
+  retention_days: 2555  # 7 years
+  
+  # File organization
+  organize_by_case: true
+  organize_by_type: true
+  organize_by_date: true
+
+# Chain of Custody
+custody:
+  database_path: "./data/custody.db"
+  enable_blockchain_audit: false
+  signature_algorithm: "sha256"
+  require_signatures: true
+  
+  # Audit settings
+  audit:
+    log_all_access: true
+    log_all_modifications: true
+    retention_years: 10
+
+# Logging Configuration
+logging:
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR, CRITICAL
+  file: "./logs/forensics.log"
+  max_file_size_mb: 10
+  backup_count: 5
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  enable_console: true
+  enable_file: true
+  
+  # Component-specific logging
+  components:
+    collectors: "INFO"
+    agents: "INFO"
+    analysis: "INFO"
+    reporting: "DEBUG"
+    storage: "INFO"
+    custody: "INFO"
+
+# Report Generation
+reporting:
+  output_path: "./output"
+  template_path: "./templates"
+  
+  # Output formats
+  formats:
+    markdown: true
+    json: true
+    html: false
+    pdf: false
+  
+  # Report sections
+  sections:
+    executive_summary: true
+    timeline: true
+    technical_findings: true
+    evidence_inventory: true
+    chain_of_custody: true
+    recommendations: true
+    iocs: true
+    appendices: true
+  
+  # Customization
+  include_raw_evidence: false
+  include_agent_reasoning: true
+  include_confidence_scores: true
+  redact_pii: true
+
+# Data Collection
+collection:
+  # Supported evidence types
+  evidence_types:
+    - logs
+    - files
+    - network
+    - memory
+    - registry
+  
+  # Collection settings
+  hash_algorithm: "sha256"
+  verify_integrity: true
+  collect_metadata: true
+  
+  # Source paths (can be overridden at runtime)
+  default_paths:
+    logs: "./mock_data/system_logs.log"
+    files: "./mock_data/"
+    network: "./mock_data/network_traffic.csv"
+
+# Security Settings
+security:
+  # Encryption
+  enable_encryption: true
+  encryption_algorithm: "AES-256"
+  key_path: "./keys/encryption.key"
+  
+  # Access control
+  require_authentication: false
+  session_timeout_minutes: 30
+  
+  # Data protection
+  enable_pii_masking: true
+  pii_patterns:
+    - ssn
+    - credit_card
+    - email
+    - phone
+    - ip_address
+  
+  # Audit
+  enable_audit_logging: true
+  audit_log_path: "./logs/audit.log"
+
+# Performance Optimization
+performance:
+  # Memory management
+  chunk_size: 1000
+  max_memory_mb: 2048
+  enable_streaming: true
+  
+  # Caching
+  enable_cache: true
+  cache_ttl_seconds: 3600
+  cache_size_mb: 512
+  
+  # Parallelization
+  worker_processes: 4
+  enable_async: true
+
+# Mock Data Generation
+mock_data:
+  path: "./mock_data"
+  generate_on_startup: false
+  
+  # Data volume
+  log_entries: 1000
+  file_count: 50
+  network_connections: 500
+  
+  # Scenario types
+  scenarios:
+    - ransomware
+    - insider_threat
+    - brute_force
+    - data_exfiltration
+    - malware_infection
+
+# Integration Settings
+integration:
+  # SIEM Integration
+  siem:
+    enabled: false
+    type: "splunk"  # splunk, elasticsearch, qradar
+    endpoint: "https://siem.example.com"
+    api_key_env: "SIEM_API_KEY"
+  
+  # Threat Intelligence
+  threat_intel:
+    enabled: false
+    providers:
+      - virustotal
+      - alienvault
+    api_keys_env:
+      virustotal: "VIRUSTOTAL_API_KEY"
+      alienvault: "ALIENVAULT_API_KEY"
+  
+  # Ticketing System
+  ticketing:
+    enabled: false
+    type: "jira"  # jira, servicenow
+    endpoint: "https://jira.example.com"
+    api_key_env: "JIRA_API_KEY"
+
+# Legal Compliance
+compliance:
+  jurisdiction: "US"
+  data_retention_days: 2555
+  enable_legal_hold: true
+  
+  # Regulations
+  regulations:
+    - gdpr
+    - ccpa
+    - hipaa
+  
+  # Evidence handling
+  chain_of_custody_required: true
+  digital_signatures_required: true
+  timestamp_authority: "rfc3161"
+
+# Notification Settings
+notifications:
+  enable_email: false
+  enable_sms: false
+  enable_webhook: false
+  
+  # Email settings
+  email:
+    smtp_server: "smtp.example.com"
+    smtp_port: 587
+    from_address: "forensics@example.com"
+    to_addresses:
+      - "analyst@example.com"
+    enable_tls: true
+  
+  # Alert thresholds
+  alerts:
+    critical_findings: true
+    high_findings: true
+    analysis_complete: true
+    errors: true
+
+# Advanced Features
+advanced:
+  # Real-time analysis
+  real_time:
+    enabled: false
+    streaming_window_seconds: 60
+    alert_threshold: 0.8
+  
+  # Machine learning
+  ml:
+    enabled: false
+    model_path: "./models"
+    auto_retrain: false
+    confidence_threshold: 0.75
+  
+  # Behavioral analysis
+  behavioral:
+    enabled: false
+    baseline_days: 30
+    anomaly_threshold: 2.0
+
+# Development Settings
+development:
+  enable_debug_mode: true
+  enable_profiling: false
+  enable_mock_data: true
+  skip_api_calls: false
+  
+  # Testing
+  test_mode: false
+  test_data_path: "./tests/fixtures"
+  
+  # Hot reload
+  enable_hot_reload: false

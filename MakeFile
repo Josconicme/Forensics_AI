@@ -1,0 +1,84 @@
+.PHONY: help setup install test clean run mock-data lint format docs
+
+help:
+	@echo "AI-Powered Digital Forensics System - Make Commands"
+	@echo ""
+	@echo "Available commands:"
+	@echo "  make setup       - Complete setup (venv, install, mock data)"
+	@echo "  make install     - Install dependencies"
+	@echo "  make test        - Run all tests"
+	@echo "  make test-unit   - Run unit tests only"
+	@echo "  make test-int    - Run integration tests only"
+	@echo "  make run         - Run the forensics analysis"
+	@echo "  make mock-data   - Generate mock forensic data"
+	@echo "  make clean       - Remove generated files and caches"
+	@echo "  make lint        - Run code linting"
+	@echo "  make format      - Format code with black"
+	@echo "  make coverage    - Run tests with coverage report"
+	@echo ""
+
+setup:
+	@echo "Setting up environment..."
+	python3 -m venv venv
+	. venv/bin/activate && pip install --upgrade pip
+	. venv/bin/activate && pip install -r requirements.txt
+	mkdir -p mock_data output logs evidence_storage data
+	@if [ ! -f .env ]; then cp .env.example .env; echo "Created .env file - please add API keys"; fi
+	@echo "Setup complete! Activate with: source venv/bin/activate"
+
+install:
+	pip install -r requirements.txt
+
+test:
+	pytest tests/ -v
+
+test-unit:
+	pytest tests/ -v -m "not integration"
+
+test-int:
+	pytest tests/ -v -m integration
+
+test-coverage:
+	pytest tests/ --cov=src --cov-report=html --cov-report=term
+
+run:
+	python main.py
+
+mock-data:
+	python scripts/generate_mock_data.py
+
+clean:
+	find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+	find . -type f -name "*.pyc" -delete
+	find . -type f -name "*.pyo" -delete
+	find . -type d -name "*.egg-info" -exec rm -rf {} + 2>/dev/null || true
+	find . -type d -name ".pytest_cache" -exec rm -rf {} + 2>/dev/null || true
+	find . -type d -name ".mypy_cache" -exec rm -rf {} + 2>/dev/null || true
+	rm -rf htmlcov/ .coverage
+	@echo "Cleaned up generated files"
+
+lint:
+	flake8 src/ tests/ --max-line-length=100 --ignore=E203,W503
+
+format:
+	black src/ tests/ scripts/
+
+format-check:
+	black src/ tests/ scripts/ --check
+
+type-check:
+	mypy src/ --ignore-missing-imports
+
+quality: lint type-check format-check
+	@echo "Code quality checks passed!"
+
+docs:
+	@echo "Generating documentation..."
+	@echo "See docs/ directory for architecture and strategic discussion"
+
+dev-install:
+	pip install -r requirements.txt
+	pip install pytest pytest-cov black flake8 mypy
+
+.PHONY: all
+all: setup mock-data test
