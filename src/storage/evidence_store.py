@@ -7,8 +7,6 @@ import sqlite3
 from pathlib import Path
 from datetime import datetime
 from typing import List, Optional, Dict, Any
-import sys
-sys.path.append(str(Path(__file__).parent.parent))
 from models.evidence import Evidence
 
 
@@ -55,12 +53,13 @@ class EvidenceStore:
                 CREATE INDEX IF NOT EXISTS idx_collected_timestamp 
                 ON evidence(collected_timestamp)
             """)
+            
+            conn.commit()
     
     def store_evidence(self, evidence: Evidence) -> bool:
         """Store evidence item"""
         try:
             with sqlite3.connect(str(self.db_path)) as conn:
-                # Store metadata
                 conn.execute("""
                     INSERT INTO evidence 
                     (evidence_id, evidence_type, source_path, collected_timestamp,
@@ -78,7 +77,6 @@ class EvidenceStore:
                     json.dumps(evidence.metadata)
                 ))
                 
-                # Store binary data separately
                 conn.execute("""
                     INSERT INTO evidence_data (evidence_id, data)
                     VALUES (?, ?)
@@ -86,8 +84,11 @@ class EvidenceStore:
                 
                 conn.commit()
                 return True
+        except sqlite3.IntegrityError:
+            print(f"[EvidenceStore] Evidence {evidence.evidence_id} already exists")
+            return False
         except Exception as e:
-            print(f"Error storing evidence: {e}")
+            print(f"[EvidenceStore] Error storing evidence: {e}")
             return False
     
     def get_evidence(self, evidence_id: str) -> Optional[Evidence]:
@@ -96,7 +97,6 @@ class EvidenceStore:
             with sqlite3.connect(str(self.db_path)) as conn:
                 conn.row_factory = sqlite3.Row
                 
-                # Get metadata
                 cursor = conn.execute("""
                     SELECT * FROM evidence WHERE evidence_id = ?
                 """, (evidence_id,))
@@ -105,7 +105,6 @@ class EvidenceStore:
                 if not row:
                     return None
                 
-                # Get binary data
                 cursor = conn.execute("""
                     SELECT data FROM evidence_data WHERE evidence_id = ?
                 """, (evidence_id,))
@@ -114,7 +113,6 @@ class EvidenceStore:
                 if not data_row:
                     return None
                 
-                # Reconstruct Evidence object
                 evidence = Evidence(
                     evidence_id=row['evidence_id'],
                     evidence_type=row['evidence_type'],
@@ -129,7 +127,7 @@ class EvidenceStore:
                 
                 return evidence
         except Exception as e:
-            print(f"Error retrieving evidence: {e}")
+            print(f"[EvidenceStore] Error retrieving evidence {evidence_id}: {e}")
             return None
     
     def get_all_evidence(self, evidence_type: Optional[str] = None) -> List[Evidence]:
@@ -171,7 +169,7 @@ class EvidenceStore:
                 
                 return evidence_list
         except Exception as e:
-            print(f"Error retrieving all evidence: {e}")
+            print(f"[EvidenceStore] Error retrieving all evidence: {e}")
             return []
     
     def verify_integrity(self, evidence_id: str) -> bool:
@@ -179,7 +177,6 @@ class EvidenceStore:
         evidence = self.get_evidence(evidence_id)
         if not evidence:
             return False
-        
         return evidence.verify_integrity()
     
     def get_evidence_summary(self) -> Dict[str, Any]:
@@ -189,21 +186,22 @@ class EvidenceStore:
                 cursor = conn.execute("""
                     SELECT 
                         COUNT(*) as total_count,
-                        SUM(data_size) as total_size,
-                        evidence_type,
-                        COUNT(*) as type_count
+                        SUM(data_size) as total_size
+                    FROM evidence
+                """)
+                row = cursor.fetchone()
+                total_count = row[0]
+                total_size = row[1] if row[1] else 0
+                
+                cursor = conn.execute("""
+                    SELECT evidence_type, COUNT(*) as type_count
                     FROM evidence
                     GROUP BY evidence_type
                 """)
                 
                 type_counts = {}
-                total_count = 0
-                total_size = 0
-                
                 for row in cursor.fetchall():
-                    type_counts[row[2]] = row[3]
-                    total_count += row[3]
-                    total_size += row[1] if row[1] else 0
+                    type_counts[row[0]] = row[1]
                 
                 return {
                     'total_evidence': total_count,
@@ -211,11 +209,11 @@ class EvidenceStore:
                     'evidence_by_type': type_counts
                 }
         except Exception as e:
-            print(f"Error getting evidence summary: {e}")
-            return {}
+            print(f"[EvidenceStore] Error getting summary: {e}")
+            return {'total_evidence': 0, 'total_size_bytes': 0, 'evidence_by_type': {}}
     
     def delete_evidence(self, evidence_id: str) -> bool:
-        """Delete evidence (use with caution - chain of custody implications)"""
+        """Delete evidence"""
         try:
             with sqlite3.connect(str(self.db_path)) as conn:
                 conn.execute("DELETE FROM evidence_data WHERE evidence_id = ?", (evidence_id,))
@@ -223,11 +221,11 @@ class EvidenceStore:
                 conn.commit()
                 return True
         except Exception as e:
-            print(f"Error deleting evidence: {e}")
+            print(f"[EvidenceStore] Error deleting evidence: {e}")
             return False
     
     def search_evidence(self, search_params: Dict[str, Any]) -> List[Evidence]:
-        """Search evidence based on various parameters"""
+        """Search evidence based on parameters"""
         try:
             query = """
                 SELECT e.*, ed.data 
@@ -276,5 +274,5 @@ class EvidenceStore:
                 
                 return evidence_list
         except Exception as e:
-            print(f"Error searching evidence: {e}")
+            print(f"[EvidenceStore] Error searching evidence: {e}")
             return []

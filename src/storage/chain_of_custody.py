@@ -7,7 +7,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 from dataclasses import dataclass, asdict
-from ..utils.crypto import CryptoUtils
+from utils.crypto import CryptoUtils
 
 
 @dataclass

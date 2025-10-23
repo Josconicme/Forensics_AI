@@ -1,59 +1,67 @@
+# src/config.py
 """
-Configuration management for the AI Forensics System
+Configuration management for forensics system
 """
 import os
 from pathlib import Path
-from typing import Optional
-from pydantic import BaseModel, Field
 from dotenv import load_dotenv
 
+# Load environment variables from .env file
 load_dotenv()
 
-class Config(BaseModel):
-    """System configuration"""
-    
-    # API Keys
-    ANTHROPIC_API_KEY: Optional[str] = Field(default_factory=lambda: os.getenv("ANTHROPIC_API_KEY"))
-    OPENAI_API_KEY: Optional[str] = Field(default_factory=lambda: os.getenv("OPENAI_API_KEY"))
-    
-    # LLM Settings
-    LLM_MODEL: str = Field(default="claude-3-5-sonnet-20241022")
-    LLM_TEMPERATURE: float = Field(default=0.0)
-    LLM_MAX_TOKENS: int = Field(default=4096)
-    
-    # Paths
-    BASE_DIR: Path = Field(default_factory=lambda: Path(__file__).parent.parent)
-    MOCK_DATA_DIR: Path = Field(default_factory=lambda: Path(__file__).parent.parent / "mock_data")
-    OUTPUT_DIR: Path = Field(default_factory=lambda: Path(__file__).parent.parent / "output")
-    EVIDENCE_DIR: Path = Field(default_factory=lambda: Path(__file__).parent.parent / "output" / "evidence")
-    REPORTS_DIR: Path = Field(default_factory=lambda: Path(__file__).parent.parent / "output" / "reports")
-    
-    # Chain of Custody
-    ENABLE_BLOCKCHAIN_CUSTODY: bool = Field(default=True)
-    HASH_ALGORITHM: str = Field(default="sha256")
-    
-    # Analysis Settings
-    ANOMALY_THRESHOLD: float = Field(default=0.75)
-    CONFIDENCE_THRESHOLD: float = Field(default=0.7)
-    MAX_CONCURRENT_AGENTS: int = Field(default=5)
-    
-    # Security
-    ENABLE_ENCRYPTION: bool = Field(default=True)
-    PII_MASKING: bool = Field(default=True)
-    
-    # Logging
-    LOG_LEVEL: str = Field(default="INFO")
-    LOG_FILE: str = Field(default="forensics.log")
-    
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
-    
-    def create_directories(self):
-        """Create necessary directories if they don't exist"""
-        for dir_path in [self.OUTPUT_DIR, self.EVIDENCE_DIR, self.REPORTS_DIR, self.MOCK_DATA_DIR]:
-            dir_path.mkdir(parents=True, exist_ok=True)
 
-# Global config instance
-config = Config()
-config.create_directories()
+class ForensicsConfig:
+    """Configuration settings for the forensics system"""
+    
+    def __init__(self):
+        # API Configuration
+        self.ANTHROPIC_API_KEY = os.getenv('ANTHROPIC_API_KEY', '')
+        self.ANTHROPIC_MODEL = os.getenv('ANTHROPIC_MODEL', 'claude-sonnet-4-5-20250929')
+        
+        # Collector Configuration
+        self.COLLECTOR_NAME = os.getenv('COLLECTOR_NAME', 'ForensicsCollector')
+        
+        # Database Configuration
+        self.DB_PATH = os.getenv('DB_PATH', './output/evidence_db/forensics.db')
+        
+        # Chain of Custody Configuration
+        self.CUSTODY_LOG_PATH = os.getenv('CUSTODY_LOG_PATH', './output/custody/chain_of_custody.log')
+        
+        # Report Configuration
+        self.REPORT_OUTPUT_DIR = os.getenv('REPORT_OUTPUT_DIR', './output/reports')
+        
+        # Analysis Configuration
+        self.ENABLE_AI_ANALYSIS = os.getenv('ENABLE_AI_ANALYSIS', 'true').lower() == 'true'
+        
+        # Logging Configuration
+        self.LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO')
+    
+    def validate(self):
+        """Validate configuration and create necessary directories"""
+        if not self.ANTHROPIC_API_KEY:
+            print("⚠️  WARNING: ANTHROPIC_API_KEY not set in .env file")
+            print("   AI-powered analysis will be limited or may fail")
+            print("   Please add your API key to the .env file")
+        
+        # Create directories if they don't exist
+        Path(self.DB_PATH).parent.mkdir(parents=True, exist_ok=True)
+        Path(self.CUSTODY_LOG_PATH).parent.mkdir(parents=True, exist_ok=True)
+        Path(self.REPORT_OUTPUT_DIR).mkdir(parents=True, exist_ok=True)
+    
+    def display(self):
+        """Display current configuration"""
+        print("\n" + "=" * 70)
+        print("CONFIGURATION")
+        print("=" * 70)
+        print(f"API Key Set: {'Yes' if self.ANTHROPIC_API_KEY else 'No'}")
+        print(f"Model: {self.ANTHROPIC_MODEL}")
+        print(f"Collector Name: {self.COLLECTOR_NAME}")
+        print(f"Database Path: {self.DB_PATH}")
+        print(f"Custody Log: {self.CUSTODY_LOG_PATH}")
+        print(f"Report Output: {self.REPORT_OUTPUT_DIR}")
+        print(f"AI Analysis: {'Enabled' if self.ENABLE_AI_ANALYSIS else 'Disabled'}")
+        print("=" * 70 + "\n")
+
+
+# Alias for backwards compatibility
+Config = ForensicsConfig

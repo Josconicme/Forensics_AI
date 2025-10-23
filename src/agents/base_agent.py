@@ -1,176 +1,126 @@
+# src/agents/base_agent.py
 """
-Base AI Agent for forensic analysis
+Base agent interface for AI-powered analysis
 """
 from abc import ABC, abstractmethod
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 from anthropic import Anthropic
-import os
-from src.config import config
-
-
-class Finding:
-    """Represents an analysis finding"""
-    
-    def __init__(
-        self,
-        finding_id: str,
-        severity: str,
-        category: str,
-        title: str,
-        description: str,
-        evidence_ids: List[str],
-        confidence: float,
-        indicators: List[str],
-        recommendations: List[str],
-        metadata: Dict[str, Any]
-    ):
-        self.finding_id = finding_id
-        self.severity = severity  # critical, high, medium, low, info
-        self.category = category
-        self.title = title
-        self.description = description
-        self.evidence_ids = evidence_ids
-        self.confidence = confidence
-        self.indicators = indicators
-        self.recommendations = recommendations
-        self.metadata = metadata
-    
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert finding to dictionary"""
-        return {
-            "finding_id": self.finding_id,
-            "severity": self.severity,
-            "category": self.category,
-            "title": self.title,
-            "description": self.description,
-            "evidence_ids": self.evidence_ids,
-            "confidence": self.confidence,
-            "indicators": self.indicators,
-            "recommendations": self.recommendations,
-            "metadata": self.metadata
-        }
+from models.evidence import Evidence, Finding
+from config import Config
 
 
 class BaseAgent(ABC):
-    """Abstract base class for forensic AI agents"""
+    """Abstract base class for analysis agents"""
     
-    def __init__(self, agent_name: str, agent_description: str):
+    def __init__(self, api_key: str = None):
         """
-        Initialize agent
+        Initialize agent with API credentials
         
         Args:
-            agent_name: Name of the agent
-            agent_description: Description of agent's capabilities
+            api_key: Anthropic API key (optional, will use config if not provided)
         """
-        self.agent_name = agent_name
-        self.agent_description = agent_description
-        self.findings: List[Finding] = []
+        if api_key:
+            self.api_key = api_key
+        else:
+            config = Config()
+            self.api_key = config.ANTHROPIC_API_KEY
         
-        # Initialize AI client
-        if config.ANTHROPIC_API_KEY:
-            self.client = Anthropic(api_key=config.ANTHROPIC_API_KEY)
+        # Initialize Anthropic client if API key is available
+        if self.api_key:
+            self.client = Anthropic(api_key=self.api_key)
         else:
             self.client = None
+            print("[BaseAgent] Warning: No API key provided, AI analysis will be limited")
     
     @abstractmethod
-    def analyze(self, evidence_items: List[Any]) -> List[Finding]:
+    def analyze(self, evidence_list: List[Evidence]) -> List[Finding]:
         """
         Analyze evidence and generate findings
         
         Args:
-            evidence_items: List of evidence items to analyze
-            
+            evidence_list: List of evidence items to analyze
+        
         Returns:
-            List of findings
+            List of findings from analysis
         """
         pass
     
-    def call_llm(self, prompt: str, system_prompt: Optional[str] = None) -> str:
+    def _call_claude(self, prompt: str, system_prompt: str = None) -> str:
         """
-        Call LLM for analysis
+        Call Claude API for analysis
         
         Args:
             prompt: User prompt
-            system_prompt: System prompt
-            
+            system_prompt: Optional system prompt
+        
         Returns:
-            LLM response
+            Response text from Claude
         """
         if not self.client:
-            # Fallback to rule-based analysis if no API key
-            return self._fallback_analysis(prompt)
+            return "AI analysis unavailable - no API key configured"
         
         try:
             messages = [{"role": "user", "content": prompt}]
             
-            if system_prompt:
-                response = self.client.messages.create(
-                    model=config.LLM_MODEL,
-                    max_tokens=config.LLM_MAX_TOKENS,
-                    temperature=config.LLM_TEMPERATURE,
-                    system=system_prompt,
-                    messages=messages
-                )
-            else:
-                response = self.client.messages.create(
-                    model=config.LLM_MODEL,
-                    max_tokens=config.LLM_MAX_TOKENS,
-                    temperature=config.LLM_TEMPERATURE,
-                    messages=messages
-                )
+            kwargs = {
+                "model": "claude-sonnet-4-5-20250929",
+                "max_tokens": 4096,
+                "messages": messages
+            }
             
+            if system_prompt:
+                kwargs["system"] = system_prompt
+            
+            response = self.client.messages.create(**kwargs)
             return response.content[0].text
         
         except Exception as e:
-            print(f"Error calling LLM: {e}")
-            return self._fallback_analysis(prompt)
+            print(f"[BaseAgent] Error calling Claude API: {e}")
+            return f"Error during AI analysis: {str(e)}"
     
-    def _fallback_analysis(self, prompt: str) -> str:
+    def _parse_severity(self, text: str) -> str:
         """
-        Fallback rule-based analysis when LLM is unavailable
+        Extract severity level from text
         
-        Args:
-            prompt: Analysis prompt
-            
         Returns:
-            Analysis result
+            Severity level: 'critical', 'high', 'medium', 'low', or 'info'
         """
-        return "Rule-based analysis: Evidence collected and basic patterns detected."
-    
-    def get_findings(self) -> List[Finding]:
-        """Get all findings from this agent"""
-        return self.findings
-    
-    def clear_findings(self):
-        """Clear all findings"""
-        self.findings = []
-    
-    def _create_finding(
-        self,
-        finding_id: str,
-        severity: str,
-        category: str,
-        title: str,
-        description: str,
-        evidence_ids: List[str],
-        confidence: float,
-        indicators: List[str],
-        recommendations: List[str],
-        metadata: Dict[str, Any] = None
-    ) -> Finding:
-        """Helper to create a finding"""
-        finding = Finding(
-            finding_id=finding_id,
-            severity=severity,
-            category=category,
-            title=title,
-            description=description,
-            evidence_ids=evidence_ids,
-            confidence=confidence,
-            indicators=indicators,
-            recommendations=recommendations,
-            metadata=metadata or {}
-        )
+        text_lower = text.lower()
         
-        self.findings.append(finding)
-        return finding
+        if 'critical' in text_lower:
+            return 'critical'
+        elif 'high' in text_lower:
+            return 'high'
+        elif 'medium' in text_lower:
+            return 'medium'
+        elif 'low' in text_lower:
+            return 'low'
+        else:
+            return 'info'
+    
+    def _parse_confidence(self, text: str) -> float:
+        """
+        Extract confidence score from text
+        
+        Returns:
+            Confidence value between 0.0 and 1.0
+        """
+        text_lower = text.lower()
+        
+        # Look for percentage patterns
+        import re
+        percentage_match = re.search(r'(\d+)%', text)
+        if percentage_match:
+            return float(percentage_match.group(1)) / 100.0
+        
+        # Look for keywords
+        if 'very high' in text_lower or 'certain' in text_lower:
+            return 0.95
+        elif 'high confidence' in text_lower:
+            return 0.85
+        elif 'moderate' in text_lower or 'medium' in text_lower:
+            return 0.70
+        elif 'low' in text_lower:
+            return 0.50
+        else:
+            return 0.75  # Default confidence

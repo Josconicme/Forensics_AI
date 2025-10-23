@@ -1,348 +1,187 @@
 # src/agents/file_analysis_agent.py
 """
-File Analysis Agent - Analyzes file metadata for suspicious patterns
+File analysis agent for examining file artifacts
 """
-import json
-import uuid
-from datetime import datetime, timedelta
-from typing import List, Any, Dict
-from collections import defaultdict
-from .base_agent import BaseAgent, Finding
+from typing import List, Dict, Any
+from datetime import datetime
+import re
+
+from agents.base_agent import BaseAgent
+from models.evidence import Evidence, Finding
 
 
 class FileAnalysisAgent(BaseAgent):
-    """Analyzes file metadata and filesystem artifacts"""
+    """Analyzes file artifacts for suspicious patterns"""
     
-    def __init__(self, llm_client=None):
-        super().__init__(
-            agent_name="FileAnalysisAgent",
-            agent_description="Analyzes file metadata, timestamps, and filesystem artifacts for suspicious patterns",
-            llm_client=llm_client
-        )
-        
-        # Suspicious file extensions
-        self.suspicious_extensions = [
-            '.exe', '.dll', '.bat', '.cmd', '.ps1', '.vbs', '.js',
-            '.scr', '.pif', '.msi', '.hta', '.jar', '.sh', '.elf'
-        ]
-        
-        # Ransomware file extensions
-        self.ransomware_extensions = [
-            '.encrypted', '.locked', '.crypto', '.crypt', '.cerber',
-            '.locky', '.zepto', '.odin', '.thor', '.aesir', '.wannacry'
-        ]
+    def __init__(self, api_key: str = None):
+        """Initialize file analysis agent"""
+        super().__init__(api_key)
+        self.agent_name = "FileAnalysisAgent"
     
-    def analyze(self, evidence_items: List[Any]) -> List[Finding]:
+    def analyze(self, evidence_list: List[Evidence]) -> List[Finding]:
         """
-        Analyze file evidence
+        Analyze file evidence for suspicious patterns
         
         Args:
-            evidence_items: List of file evidence items
-            
+            evidence_list: List of file evidence items
+        
         Returns:
             List of findings
         """
-        self.clear_findings()
+        findings = []
         
-        for evidence in evidence_items:
-            if evidence.evidence_type != "file_metadata":
-                continue
-            
-            # Parse file metadata
-            try:
-                content = evidence.data.decode('utf-8')
-                file_data = json.loads(content)
-            except Exception as e:
-                self.log(f"Failed to parse file metadata: {e}", "ERROR")
-                continue
-            
-            # Run analysis functions
-            self._detect_ransomware_indicators(evidence, file_data)
-            self._detect_suspicious_files(evidence, file_data)
-            self._detect_timestamp_anomalies(evidence, file_data)
-            self._detect_hidden_files(evidence, file_data)
-            self._detect_mass_file_changes(evidence, file_data)
-            
-            # AI analysis if available
-            if self.llm_client:
-                self._ai_file_analysis(evidence, file_data)
+        print(f"[{self.agent_name}] Analyzing {len(evidence_list)} file(s)...")
         
-        return self.findings
+        for evidence in evidence_list:
+            # Basic pattern-based analysis
+            findings.extend(self._analyze_file_basic(evidence))
+            
+            # AI-powered analysis if available
+            if self.client:
+                findings.extend(self._analyze_file_ai(evidence))
+        
+        return findings
     
-    def _detect_ransomware_indicators(self, evidence: Any, file_data: Dict):
-        """Detect potential ransomware activity"""
-        ransomware_indicators = []
-        encrypted_files = []
-        ransom_notes = []
+    def _analyze_file_basic(self, evidence: Evidence) -> List[Finding]:
+        """Basic pattern-based file analysis"""
+        findings = []
         
-        files = file_data.get('files', [])
-        
-        for file_info in files:
-            filename = file_info.get('name', '').lower()
-            extension = file_info.get('extension', '').lower()
-            
-            # Check for ransomware extensions
-            if any(ext in extension for ext in self.ransomware_extensions):
-                encrypted_files.append(file_info)
-            
-            # Check for ransom note files
-            if any(note in filename for note in ['readme', 'decrypt', 'recovery', 'help', 'ransom']):
-                if extension in ['.txt', '.html', '.htm']:
-                    ransom_notes.append(file_info)
-        
-        # Check for mass encryption pattern
-        if len(encrypted_files) > 10 or len(ransom_notes) > 0:
-            severity = "CRITICAL" if len(encrypted_files) > 50 else "HIGH"
-            
-            finding = Finding(
-                finding_id=str(uuid.uuid4()),
-                agent_name=self.agent_name,
-                severity=severity,
-                title="Potential Ransomware Activity Detected",
-                description=f"Detected {len(encrypted_files)} encrypted files and {len(ransom_notes)} potential ransom notes.",
-                evidence_ids=[evidence.evidence_id],
-                timestamp=datetime.now(),
-                confidence=0.90 if len(ransom_notes) > 0 else 0.75,
-                indicators={
-                    'encrypted_files_count': len(encrypted_files),
-                    'ransom_notes': [f['name'] for f in ransom_notes],
-                    'sample_encrypted_files': [f['name'] for f in encrypted_files[:10]]
-                },
-                recommendations=[
-                    "IMMEDIATE ACTION: Isolate affected systems from network",
-                    "Do not pay ransom - contact law enforcement",
-                    "Identify ransomware variant for possible decryption tools",
-                    "Restore from clean backups if available",
-                    "Scan entire network for lateral movement",
-                    "Preserve evidence for forensic analysis"
-                ],
-                mitre_attack="T1486 - Data Encrypted for Impact"
-            )
-            self.add_finding(finding)
-    
-    def _detect_suspicious_files(self, evidence: Any, file_data: Dict):
-        """Detect suspicious executable files and locations"""
-        suspicious_files = []
-        files = file_data.get('files', [])
-        
-        suspicious_locations = [
-            'temp', 'tmp', 'appdata', 'programdata', 'public',
-            'users\\public', 'windows\\temp', '/tmp/', '/var/tmp/'
-        ]
-        
-        for file_info in files:
-            path = file_info.get('path', '').lower()
-            extension = file_info.get('extension', '').lower()
-            
-            # Check for executables in suspicious locations
-            if extension in self.suspicious_extensions:
-                if any(loc in path for loc in suspicious_locations):
-                    suspicious_files.append(file_info)
-        
-        if len(suspicious_files) > 0:
-            finding = Finding(
-                finding_id=str(uuid.uuid4()),
-                agent_name=self.agent_name,
-                severity="HIGH",
-                title="Suspicious Files in Unusual Locations",
-                description=f"Found {len(suspicious_files)} potentially malicious files in unusual system locations.",
-                evidence_ids=[evidence.evidence_id],
-                timestamp=datetime.now(),
-                confidence=0.70,
-                indicators={
-                    'suspicious_files': [
-                        {'name': f['name'], 'path': f['path'], 'size': f.get('size', 0)}
-                        for f in suspicious_files[:10]
-                    ]
-                },
-                recommendations=[
-                    "Analyze suspicious files with antivirus and sandbox",
-                    "Check file hashes against threat intelligence databases",
-                    "Review file creation and modification timestamps",
-                    "Investigate parent processes that created these files"
-                ],
-                mitre_attack="T1204 - User Execution"
-            )
-            self.add_finding(finding)
-    
-    def _detect_timestamp_anomalies(self, evidence: Any, file_data: Dict):
-        """Detect timestamp manipulation (timestomping)"""
-        anomalies = []
-        files = file_data.get('files', [])
-        
-        for file_info in files:
-            created = file_info.get('created')
-            modified = file_info.get('modified')
-            accessed = file_info.get('accessed')
-            
-            if created and modified:
-                try:
-                    created_dt = datetime.fromisoformat(created)
-                    modified_dt = datetime.fromisoformat(modified)
-                    
-                    # Modified date before created date (timestomping)
-                    if modified_dt < created_dt:
-                        anomalies.append({
-                            'file': file_info['name'],
-                            'issue': 'Modified date before created date',
-                            'created': created,
-                            'modified': modified
-                        })
-                    
-                    # Very old modified date on recently created file
-                    now = datetime.now()
-                    if (now - created_dt).days < 7 and (now - modified_dt).days > 365:
-                        anomalies.append({
-                            'file': file_info['name'],
-                            'issue': 'Suspiciously old modification date',
-                            'created': created,
-                            'modified': modified
-                        })
-                        
-                except Exception as e:
-                    continue
-        
-        if len(anomalies) > 0:
-            finding = Finding(
-                finding_id=str(uuid.uuid4()),
-                agent_name=self.agent_name,
-                severity="MEDIUM",
-                title="File Timestamp Anomalies Detected",
-                description=f"Detected {len(anomalies)} files with suspicious timestamp patterns indicating possible anti-forensics.",
-                evidence_ids=[evidence.evidence_id],
-                timestamp=datetime.now(),
-                confidence=0.80,
-                indicators={
-                    'anomaly_count': len(anomalies),
-                    'anomalies': anomalies[:10]
-                },
-                recommendations=[
-                    "Investigate files with timestamp anomalies",
-                    "Check $MFT and journal entries for original timestamps",
-                    "Correlate with other evidence sources",
-                    "May indicate attacker anti-forensics techniques"
-                ],
-                mitre_attack="T1070.006 - Indicator Removal: Timestomp"
-            )
-            self.add_finding(finding)
-    
-    def _detect_hidden_files(self, evidence: Any, file_data: Dict):
-        """Detect hidden files that may be malicious"""
-        hidden_files = []
-        files = file_data.get('files', [])
-        
-        for file_info in files:
-            is_hidden = file_info.get('is_hidden', False)
-            name = file_info.get('name', '')
-            
-            # Unix hidden files (starting with .)
-            if name.startswith('.') or is_hidden:
-                hidden_files.append(file_info)
-        
-        if len(hidden_files) > 20:  # Threshold for suspicious hidden files
-            finding = Finding(
-                finding_id=str(uuid.uuid4()),
-                agent_name=self.agent_name,
-                severity="LOW",
-                title="Unusual Number of Hidden Files",
-                description=f"Detected {len(hidden_files)} hidden files which may warrant investigation.",
-                evidence_ids=[evidence.evidence_id],
-                timestamp=datetime.now(),
-                confidence=0.50,
-                indicators={
-                    'hidden_files_count': len(hidden_files),
-                    'sample_files': [f['name'] for f in hidden_files[:10]]
-                },
-                recommendations=[
-                    "Review hidden files for legitimacy",
-                    "Check if hidden files are system or application files",
-                    "Investigate any hidden executables"
-                ]
-            )
-            self.add_finding(finding)
-    
-    def _detect_mass_file_changes(self, evidence: Any, file_data: Dict):
-        """Detect mass file modifications in short time period"""
-        files = file_data.get('files', [])
-        
-        # Group files by modification time (within 1 hour windows)
-        time_windows = defaultdict(list)
-        
-        for file_info in files:
-            modified = file_info.get('modified')
-            if modified:
-                try:
-                    mod_dt = datetime.fromisoformat(modified)
-                    # Group by hour
-                    window = mod_dt.replace(minute=0, second=0, microsecond=0)
-                    time_windows[window].append(file_info)
-                except:
-                    continue
-        
-        # Check for suspicious mass modifications
-        for window, modified_files in time_windows.items():
-            if len(modified_files) > 50:  # Threshold
-                finding = Finding(
-                    finding_id=str(uuid.uuid4()),
-                    agent_name=self.agent_name,
-                    severity="HIGH",
-                    title="Mass File Modification Event",
-                    description=f"Detected {len(modified_files)} files modified within a 1-hour window at {window}.",
-                    evidence_ids=[evidence.evidence_id],
-                    timestamp=datetime.now(),
-                    confidence=0.75,
-                    indicators={
-                        'modified_count': len(modified_files),
-                        'time_window': window.isoformat(),
-                        'sample_files': [f['name'] for f in modified_files[:10]]
-                    },
-                    recommendations=[
-                        "Investigate what caused mass file modifications",
-                        "Check for ransomware or wiper malware",
-                        "Review system and application logs for this timeframe",
-                        "Verify if modifications were authorized"
-                    ],
-                    mitre_attack="T1485 - Data Destruction"
-                )
-                self.add_finding(finding)
-    
-    def _ai_file_analysis(self, evidence: Any, file_data: Dict):
-        """Use LLM for advanced file pattern analysis"""
-        files = file_data.get('files', [])[:20]  # Sample
-        
-        file_summary = "\n".join([
-            f"- {f.get('name')} ({f.get('extension')}) in {f.get('path')} [Size: {f.get('size', 0)} bytes]"
-            for f in files
-        ])
-        
-        prompt = f"""Analyze the following file system artifacts for security concerns:
-
-{file_summary}
-
-Look for:
-1. Suspicious file patterns or naming conventions
-2. Indicators of malware or intrusion
-3. Data exfiltration staging
-4. Unusual file locations or configurations
-
-Provide security assessment."""
-
         try:
-            analysis = self._query_llm(prompt)
+            # Decode file content
+            content = evidence.data.decode('utf-8', errors='ignore')
+            source_path = evidence.source_path.lower()
             
-            if analysis and len(analysis) > 50:
+            # Check for suspicious executable
+            if source_path.endswith('.exe'):
+                suspicious_patterns = [
+                    (r'nc\.exe|netcat', 'Netcat command detected'),
+                    (r'cmd\.exe.*-e', 'Reverse shell pattern'),
+                    (r'powershell.*-enc', 'Encoded PowerShell command'),
+                    (r'invoke-expression|iex', 'PowerShell code execution'),
+                ]
+                
+                for pattern, description in suspicious_patterns:
+                    if re.search(pattern, content, re.IGNORECASE):
+                        finding = Finding(
+                            finding_id=Finding.generate_id(),
+                            severity='high',
+                            title=f'Suspicious Pattern in Executable: {description}',
+                            description=f'Found suspicious pattern "{description}" in file {evidence.source_path}',
+                            evidence_ids=[evidence.evidence_id],
+                            timestamp=datetime.now(),
+                            confidence=0.85,
+                            indicators={'pattern': pattern, 'file': evidence.source_path},
+                            recommendations=[
+                                'Quarantine the suspicious executable',
+                                'Perform dynamic malware analysis',
+                                'Check process execution logs for this file'
+                            ]
+                        )
+                        findings.append(finding)
+            
+            # Check for sensitive data files
+            if source_path.endswith('.csv') and 'confidential' in source_path:
+                # Look for sensitive data patterns
+                if re.search(r'\d{3}-\d{2}-\d{4}', content):  # SSN pattern
+                    finding = Finding(
+                        finding_id=Finding.generate_id(),
+                        severity='high',
+                        title='Sensitive Data Detected: SSN Pattern',
+                        description=f'File {evidence.source_path} contains data matching SSN patterns',
+                        evidence_ids=[evidence.evidence_id],
+                        timestamp=datetime.now(),
+                        confidence=0.90,
+                        indicators={'file': evidence.source_path, 'data_type': 'SSN'},
+                        recommendations=[
+                            'Verify if data exfiltration occurred',
+                            'Check access logs for this file',
+                            'Implement DLP policies',
+                            'Review data handling procedures'
+                        ]
+                    )
+                    findings.append(finding)
+                
+                if re.search(r'\d{4}-\d{4}-\d{4}-\d{4}', content):  # Credit card pattern
+                    finding = Finding(
+                        finding_id=Finding.generate_id(),
+                        severity='critical',
+                        title='Sensitive Data Detected: Credit Card Numbers',
+                        description=f'File {evidence.source_path} contains credit card number patterns',
+                        evidence_ids=[evidence.evidence_id],
+                        timestamp=datetime.now(),
+                        confidence=0.95,
+                        indicators={'file': evidence.source_path, 'data_type': 'Credit Card'},
+                        recommendations=[
+                            'Immediate incident response required',
+                            'Notify compliance and legal teams',
+                            'Assess scope of data exposure',
+                            'Implement encryption for sensitive data'
+                        ]
+                    )
+                    findings.append(finding)
+        
+        except Exception as e:
+            print(f"[{self.agent_name}] Error in basic analysis: {e}")
+        
+        return findings
+    
+    def _analyze_file_ai(self, evidence: Evidence) -> List[Finding]:
+        """AI-powered file analysis using Claude"""
+        findings = []
+        
+        try:
+            content = evidence.data.decode('utf-8', errors='ignore')[:2000]  # Limit content
+            
+            prompt = f"""Analyze this file artifact from a security investigation:
+
+File: {evidence.source_path}
+Size: {len(evidence.data)} bytes
+Content sample:
+{content}
+
+Identify any security concerns, malicious patterns, or indicators of compromise.
+Format your response as:
+SEVERITY: [critical/high/medium/low]
+TITLE: [brief title]
+DESCRIPTION: [detailed description]
+CONFIDENCE: [percentage]
+RECOMMENDATIONS: [bullet points]
+"""
+            
+            system_prompt = "You are a digital forensics analyst examining file artifacts for security threats."
+            
+            response = self._call_claude(prompt, system_prompt)
+            
+            # Parse AI response
+            severity = self._parse_severity(response)
+            confidence = self._parse_confidence(response)
+            
+            # Extract title
+            title_match = re.search(r'TITLE:\s*(.+)', response, re.IGNORECASE)
+            title = title_match.group(1).strip() if title_match else "AI-Detected Security Issue"
+            
+            # Extract recommendations
+            recommendations = []
+            rec_section = re.search(r'RECOMMENDATIONS?:(.*?)(?:\n\n|\Z)', response, re.IGNORECASE | re.DOTALL)
+            if rec_section:
+                rec_lines = rec_section.group(1).strip().split('\n')
+                recommendations = [line.strip('- •*').strip() for line in rec_lines if line.strip()]
+            
+            if severity in ['critical', 'high', 'medium']:
                 finding = Finding(
-                    finding_id=str(uuid.uuid4()),
-                    agent_name=self.agent_name,
-                    severity="INFO",
-                    title="AI-Powered File System Analysis",
-                    description=analysis,
+                    finding_id=Finding.generate_id(),
+                    severity=severity,
+                    title=title,
+                    description=response[:500],
                     evidence_ids=[evidence.evidence_id],
                     timestamp=datetime.now(),
-                    confidence=0.65,
-                    indicators={'analysis_type': 'LLM-based file analysis'},
-                    recommendations=["Verify AI findings with manual analysis"]
+                    confidence=confidence,
+                    indicators={'file': evidence.source_path, 'analysis_type': 'AI'},
+                    recommendations=recommendations[:5]
                 )
-                self.add_finding(finding)
+                findings.append(finding)
+        
         except Exception as e:
-            self.log(f"AI file analysis failed: {e}", "WARNING")
+            print(f"[{self.agent_name}] Error in AI analysis: {e}")
+        
+        return findings

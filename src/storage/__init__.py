@@ -1,6 +1,1 @@
-"""
-Evidence Storage
-"""
-from .evidence_store import EvidenceStore
-
-__all__ = ['EvidenceStore']
+# Package initialization

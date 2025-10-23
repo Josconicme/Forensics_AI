@@ -422,3 +422,7 @@ def log_critical(message: str):
 def log_debug(message: str):
     """Log debug message."""
     get_forensics_logger().logger.debug(message)
+
+
+# Default logger instance for simple imports
+logger = get_forensics_logger()

@@ -1,287 +1,270 @@
+# src/chain_of_custody/custody_manager.py
 """
-Chain of Custody Manager - Tracks evidence handling and maintains integrity
+Chain of custody management for evidence tracking
 """
 import json
-import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Any, Optional
-from dataclasses import dataclass, asdict
-from ..utils.crypto import CryptoUtils
-
-
-@dataclass
-class CustodyEvent:
-    """Represents a chain of custody event"""
-    event_id: str
-    evidence_id: str
-    timestamp: str
-    event_type: str  # collected, analyzed, transferred, accessed
-    actor: str
-    action: str
-    previous_hash: Optional[str]
-    current_hash: str
-    signature: str
-    metadata: Dict[str, Any]
+from typing import Dict, Any, List, Optional
+from utils.crypto import CryptoUtils
 
 
 class CustodyManager:
-    """Manages chain of custody for forensic evidence"""
+    """Manages chain of custody log for evidence"""
     
-    def __init__(self, storage_path: Path):
+    def __init__(self, log_path: str = "./output/custody/chain_of_custody.log"):
         """
         Initialize custody manager
         
         Args:
-            storage_path: Path to store custody logs
+            log_path: Path to chain of custody log file
         """
-        self.storage_path = storage_path
+        self.log_path = Path(log_path)
+        self.storage_path = self.log_path.parent
         self.storage_path.mkdir(parents=True, exist_ok=True)
-        self.custody_file = self.storage_path / "chain_of_custody.jsonl"
-        self.evidence_registry: Dict[str, List[CustodyEvent]] = {}
-        self._load_custody_log()
-    
-    def _load_custody_log(self):
-        """Load existing custody log from disk"""
-        if self.custody_file.exists():
-            with open(self.custody_file, 'r') as f:
-                for line in f:
-                    if line.strip():
-                        event_data = json.loads(line)
-                        event = CustodyEvent(**event_data)
-                        if event.evidence_id not in self.evidence_registry:
-                            self.evidence_registry[event.evidence_id] = []
-                        self.evidence_registry[event.evidence_id].append(event)
-    
-    def register_evidence(
-        self,
-        evidence_id: str,
-        evidence_data: bytes,
-        evidence_type: str,
-        collector: str,
-        metadata: Dict[str, Any]
-    ) -> CustodyEvent:
-        """
-        Register new evidence in chain of custody
         
-        Args:
-            evidence_id: Unique identifier for evidence
-            evidence_data: Raw evidence data
-            evidence_type: Type of evidence
-            collector: Identity of collector
-            metadata: Additional metadata
-            
-        Returns:
-            CustodyEvent for registration
-        """
-        evidence_hash = CryptoUtils.compute_hash(evidence_data)
-        
-        event = CustodyEvent(
-            event_id=str(uuid.uuid4()),
-            evidence_id=evidence_id,
-            timestamp=datetime.utcnow().isoformat(),
-            event_type="collected",
-            actor=collector,
-            action=f"Evidence collected: {evidence_type}",
-            previous_hash=None,
-            current_hash=evidence_hash,
-            signature="",
-            metadata={
-                **metadata,
-                "evidence_type": evidence_type,
-                "size_bytes": len(evidence_data)
+        # Initialize log file if it doesn't exist
+        if not self.log_path.exists():
+            self._init_log_file()
+    
+    def _init_log_file(self):
+        """Initialize empty log file with header"""
+        with open(self.log_path, 'w') as f:
+            header = {
+                'log_initialized': datetime.now().isoformat(),
+                'log_version': '1.0',
+                'description': 'Chain of Custody Log for Digital Forensics Evidence'
             }
-        )
-        
-        # Create signature
-        event.signature = self._sign_event(event)
-        
-        # Store event
-        self._store_event(event)
-        
-        return event
+            f.write(json.dumps(header) + '\n')
     
-    def record_access(
-        self,
-        evidence_id: str,
-        actor: str,
-        action: str,
-        metadata: Optional[Dict[str, Any]] = None
-    ) -> CustodyEvent:
+    def log_event(self, event_type: str, evidence_id: str, actor: str, 
+                  details: Optional[Dict[str, Any]] = None):
         """
-        Record evidence access event
+        Log a custody event
+        
+        Args:
+            event_type: Type of event (collection, access, transfer, analysis, etc.)
+            evidence_id: Evidence identifier
+            actor: Name of person/system performing action
+            details: Additional event details
+        """
+        event = {
+            'timestamp': datetime.now().isoformat(),
+            'event_type': event_type,
+            'evidence_id': evidence_id,
+            'actor': actor,
+            'details': details or {}
+        }
+        
+        # Append to log file
+        with open(self.log_path, 'a') as f:
+            f.write(json.dumps(event) + '\n')
+    
+    def log_collection(self, evidence_id: str, source_path: str, 
+                       collector_name: str, hash_sha256: str = None):
+        """
+        Log evidence collection event
+        
+        Args:
+            evidence_id: Unique evidence identifier
+            source_path: Path where evidence was collected from
+            collector_name: Name of collector
+            hash_sha256: SHA256 hash of evidence
+        """
+        details = {
+            'source_path': source_path,
+            'hash_sha256': hash_sha256
+        }
+        self.log_event('collection', evidence_id, collector_name, details)
+    
+    def log_access(self, evidence_id: str, accessor: str, purpose: str):
+        """
+        Log evidence access event
         
         Args:
             evidence_id: Evidence identifier
-            actor: Identity of accessor
-            action: Action performed
-            metadata: Additional metadata
-            
-        Returns:
-            CustodyEvent for access
+            accessor: Person/system accessing evidence
+            purpose: Purpose of access
         """
-        # Get last event for this evidence
-        previous_event = self._get_last_event(evidence_id)
-        previous_hash = previous_event.current_hash if previous_event else None
-        
-        event = CustodyEvent(
-            event_id=str(uuid.uuid4()),
-            evidence_id=evidence_id,
-            timestamp=datetime.utcnow().isoformat(),
-            event_type="accessed",
-            actor=actor,
-            action=action,
-            previous_hash=previous_hash,
-            current_hash=previous_hash or "",
-            signature="",
-            metadata=metadata or {}
-        )
-        
-        event.signature = self._sign_event(event)
-        self._store_event(event)
-        
-        return event
+        details = {'purpose': purpose}
+        self.log_event('access', evidence_id, accessor, details)
     
-    def record_analysis(
-        self,
-        evidence_id: str,
-        analyzer: str,
-        findings: Dict[str, Any]
-    ) -> CustodyEvent:
+    def log_analysis(self, evidence_id: str, analyzer: str, analysis_type: str):
         """
-        Record evidence analysis
+        Log evidence analysis event
         
         Args:
             evidence_id: Evidence identifier
-            analyzer: Identity of analyzer
-            findings: Analysis findings
-            
-        Returns:
-            CustodyEvent for analysis
+            analyzer: Person/system performing analysis
+            analysis_type: Type of analysis performed
         """
-        previous_event = self._get_last_event(evidence_id)
-        previous_hash = previous_event.current_hash if previous_event else None
-        
-        event = CustodyEvent(
-            event_id=str(uuid.uuid4()),
-            evidence_id=evidence_id,
-            timestamp=datetime.utcnow().isoformat(),
-            event_type="analyzed",
-            actor=analyzer,
-            action="Evidence analyzed",
-            previous_hash=previous_hash,
-            current_hash=previous_hash or "",
-            signature="",
-            metadata={"findings_summary": findings}
-        )
-        
-        event.signature = self._sign_event(event)
-        self._store_event(event)
-        
-        return event
+        details = {'analysis_type': analysis_type}
+        self.log_event('analysis', evidence_id, analyzer, details)
     
-    def verify_integrity(self, evidence_id: str) -> bool:
+    def log_transfer(self, evidence_id: str, from_actor: str, to_actor: str, 
+                     reason: str):
         """
-        Verify integrity of evidence chain
+        Log evidence transfer event
         
         Args:
             evidence_id: Evidence identifier
-            
-        Returns:
-            True if chain is valid
+            from_actor: Current custodian
+            to_actor: New custodian
+            reason: Reason for transfer
         """
-        if evidence_id not in self.evidence_registry:
+        details = {
+            'from': from_actor,
+            'to': to_actor,
+            'reason': reason
+        }
+        self.log_event('transfer', evidence_id, from_actor, details)
+    
+    def log_modification(self, evidence_id: str, modifier: str, 
+                        modification_type: str, reason: str):
+        """
+        Log evidence modification event (should be rare/restricted)
+        
+        Args:
+            evidence_id: Evidence identifier
+            modifier: Person/system making modification
+            modification_type: Type of modification
+            reason: Justification for modification
+        """
+        details = {
+            'modification_type': modification_type,
+            'reason': reason,
+            'warning': 'Evidence modified - integrity may be compromised'
+        }
+        self.log_event('modification', evidence_id, modifier, details)
+    
+    def get_custody_log(self, evidence_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        """
+        Retrieve custody log entries
+        
+        Args:
+            evidence_id: Optional filter by evidence ID
+        
+        Returns:
+            List of custody log events
+        """
+        if not self.log_path.exists():
+            return []
+        
+        events = []
+        with open(self.log_path, 'r') as f:
+            for line in f:
+                try:
+                    event = json.loads(line.strip())
+                    
+                    # Skip header line
+                    if 'log_initialized' in event:
+                        continue
+                    
+                    # Filter by evidence_id if provided
+                    if evidence_id is None or event.get('evidence_id') == evidence_id:
+                        events.append(event)
+                except json.JSONDecodeError:
+                    continue
+        
+        return events
+    
+    def verify_custody_chain(self, evidence_id: str) -> bool:
+        """
+        Verify that custody chain is complete for evidence
+        
+        Args:
+            evidence_id: Evidence identifier
+        
+        Returns:
+            True if chain is complete, False otherwise
+        """
+        events = self.get_custody_log(evidence_id)
+        
+        if not events:
             return False
         
-        events = self.evidence_registry[evidence_id]
+        # Check that first event is collection
+        if events[0].get('event_type') != 'collection':
+            return False
         
-        for i, event in enumerate(events):
-            # Verify signature
-            expected_signature = self._sign_event(event, verify=True)
-            if event.signature != expected_signature:
-                return False
-            
-            # Verify hash chain
-            if i > 0:
-                prev_event = events[i - 1]
-                if event.previous_hash != prev_event.current_hash:
-                    return False
+        # Check for chronological order
+        timestamps = [datetime.fromisoformat(e['timestamp']) for e in events]
+        if timestamps != sorted(timestamps):
+            return False
         
         return True
     
-    def get_custody_chain(self, evidence_id: str) -> List[Dict[str, Any]]:
+    def get_custody_summary(self, evidence_id: str) -> Dict[str, Any]:
         """
-        Get complete custody chain for evidence
+        Get summary of custody chain for evidence
         
         Args:
             evidence_id: Evidence identifier
-            
+        
         Returns:
-            List of custody events
+            Summary dictionary with custody information
         """
-        if evidence_id not in self.evidence_registry:
-            return []
+        events = self.get_custody_log(evidence_id)
         
-        return [asdict(event) for event in self.evidence_registry[evidence_id]]
-    
-    def get_summary(self, evidence_id: str) -> Dict[str, Any]:
-        """
-        Get custody summary for evidence
+        if not events:
+            return {'error': 'No custody events found'}
         
-        Args:
-            evidence_id: Evidence identifier
-            
-        Returns:
-            Summary of custody chain
-        """
-        if evidence_id not in self.evidence_registry:
-            return {}
+        # Count event types
+        event_types = {}
+        for event in events:
+            event_type = event.get('event_type', 'unknown')
+            event_types[event_type] = event_types.get(event_type, 0) + 1
         
-        events = self.evidence_registry[evidence_id]
+        # Get actors involved
+        actors = set()
+        for event in events:
+            actor = event.get('actor')
+            if actor:
+                actors.add(actor)
         
         return {
-            "evidence_id": evidence_id,
-            "total_events": len(events),
-            "first_collected": events[0].timestamp if events else None,
-            "last_accessed": events[-1].timestamp if events else None,
-            "collectors": list(set(e.actor for e in events if e.event_type == "collected")),
-            "analyzers": list(set(e.actor for e in events if e.event_type == "analyzed")),
-            "integrity_verified": self.verify_integrity(evidence_id),
-            "custody_chain": [
-                {
-                    "timestamp": e.timestamp,
-                    "actor": e.actor,
-                    "action": e.action,
-                    "event_type": e.event_type
-                }
-                for e in events
-            ]
+            'evidence_id': evidence_id,
+            'total_events': len(events),
+            'event_types': event_types,
+            'actors': list(actors),
+            'first_event': events[0]['timestamp'],
+            'last_event': events[-1]['timestamp'],
+            'chain_valid': self.verify_custody_chain(evidence_id)
         }
     
-    def _sign_event(self, event: CustodyEvent, verify: bool = False) -> str:
-        """Create signature for custody event"""
-        event_dict = asdict(event)
-        if verify:
-            # Remove signature for verification
-            event_dict.pop('signature', None)
-        else:
-            event_dict['signature'] = ""
+    def export_custody_report(self, output_path: str, evidence_id: Optional[str] = None):
+        """
+        Export custody log to readable report
         
-        return CryptoUtils.create_custody_signature(event_dict)
-    
-    def _store_event(self, event: CustodyEvent):
-        """Store event to disk and memory"""
-        # Add to registry
-        if event.evidence_id not in self.evidence_registry:
-            self.evidence_registry[event.evidence_id] = []
-        self.evidence_registry[event.evidence_id].append(event)
+        Args:
+            output_path: Path to output report file
+            evidence_id: Optional filter by evidence ID
+        """
+        events = self.get_custody_log(evidence_id)
         
-        # Append to file
-        with open(self.custody_file, 'a') as f:
-            f.write(json.dumps(asdict(event)) + '\n')
-    
-    def _get_last_event(self, evidence_id: str) -> Optional[CustodyEvent]:
-        """Get last event for evidence"""
-        if evidence_id in self.evidence_registry and self.evidence_registry[evidence_id]:
-            return self.evidence_registry[evidence_id][-1]
-        return None
+        with open(output_path, 'w') as f:
+            f.write("CHAIN OF CUSTODY REPORT\n")
+            f.write("=" * 70 + "\n\n")
+            
+            if evidence_id:
+                f.write(f"Evidence ID: {evidence_id}\n\n")
+            
+            f.write(f"Total Events: {len(events)}\n")
+            f.write(f"Report Generated: {datetime.now().isoformat()}\n\n")
+            f.write("=" * 70 + "\n\n")
+            
+            for i, event in enumerate(events, 1):
+                f.write(f"Event #{i}\n")
+                f.write(f"  Timestamp: {event['timestamp']}\n")
+                f.write(f"  Type: {event['event_type']}\n")
+                f.write(f"  Evidence ID: {event.get('evidence_id', 'N/A')}\n")
+                f.write(f"  Actor: {event.get('actor', 'N/A')}\n")
+                
+                if event.get('details'):
+                    f.write(f"  Details:\n")
+                    for key, value in event['details'].items():
+                        f.write(f"    {key}: {value}\n")
+                
+                f.write("\n")
+        
+        print(f"[CustodyManager] Custody report exported to {output_path}")
