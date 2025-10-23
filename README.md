@@ -235,7 +235,7 @@ This project was developed as part of Ibn Sina Corporation's AI-Powered Digital 
 
 ## 👥 Author
 
-Developed for Ibn Sina Corporation Technical Assessment
+Ayokunle Ola developed for Ibn Sina Corporation by COGNNA
 
 ## 🙏 Technologies Used
 
