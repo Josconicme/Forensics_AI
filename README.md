@@ -2,198 +2,167 @@
 
 An intelligent digital forensics platform that automates evidence collection, analysis, and reporting using AI agents for security incident investigation.
 
-## 🎯 Features
+## Key Features
 
-- **Multi-Source Evidence Collection**: Automated ingestion from logs, files, and network captures
-- **AI-Powered Analysis**: Specialized agents for pattern detection and threat correlation
-- **Chain of Custody**: Cryptographic verification and immutable audit trails
-- **Automated Reporting**: Comprehensive forensic reports with timelines and recommendations
-- **Evidence Correlation**: Cross-source analysis for incident reconstruction
+- **Multi-Source Evidence Collection** - Automated ingestion from logs, files, and network captures
+- **AI-Powered Analysis** - Specialized agents for pattern detection and threat correlation
+- **Chain of Custody** - Cryptographic verification and immutable audit trails
+- **Automated Reporting** - Comprehensive forensic reports with timelines and recommendations
+- **Evidence Correlation** - Cross-source analysis for incident reconstruction
 
-## 🏗️ Architecture
-
+## 🏗️ System Architecture
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                     Ingestion Layer                          │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐     │
-│  │Log Collector │  │File Collector│  │Net. Collector│     │
-│  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘     │
-└─────────┼──────────────────┼──────────────────┼─────────────┘
-          │                  │                  │
-          └──────────────────┼──────────────────┘
-                             ▼
-          ┌─────────────────────────────────────┐
-          │      Evidence Store + Chain of      │
-          │           Custody Tracking          │
-          └─────────────┬───────────────────────┘
-                        ▼
-          ┌─────────────────────────────────────┐
-          │         AI Agent Layer              │
-          │  ┌────────────┐  ┌──────────────┐  │
-          │  │Log Analysis│  │File Analysis │  │
-          │  └────────────┘  └──────────────┘  │
-          │  ┌────────────┐  ┌──────────────┐  │
-          │  │Network Anal│  │ Correlation  │  │
-          │  └────────────┘  └──────────────┘  │
-          └─────────────┬───────────────────────┘
-                        ▼
-          ┌─────────────────────────────────────┐
-          │      Analysis Engine                │
-          │   (Orchestrates Multi-Agent         │
-          │    Collaboration)                   │
-          └─────────────┬───────────────────────┘
-                        ▼
-          ┌─────────────────────────────────────┐
-          │      Report Generator               │
-          │   (Executive Summary + Technical)   │
-          └─────────────────────────────────────┘
+│                  Evidence Collection Layer                   │
+│   Log Collector  │  File Collector  │  Network Collector    │
+└────────────────────────┬─────────────────────────────────────┘
+                         ▼
+          ┌──────────────────────────────────┐
+          │   Evidence Store + Chain of      │
+          │      Custody Tracking            │
+          └──────────────┬───────────────────┘
+                         ▼
+          ┌──────────────────────────────────┐
+          │      AI Analysis Agents          │
+          │  • Log Analysis                  │
+          │  • File Analysis                 │
+          │  • Network Analysis              │
+          │  • Correlation Engine            │
+          └──────────────┬───────────────────┘
+                         ▼
+          ┌──────────────────────────────────┐
+          │   Forensic Report Generator      │
+          │  (Markdown + JSON + Timeline)    │
+          └──────────────────────────────────┘
 ```
 
 ## 🚀 Quick Start
 
 ### Prerequisites
-
 - Python 3.9+
-- Anthropic API key (for Claude) or OpenAI API key
+- Anthropic API key (for AI analysis)
 
 ### Installation
-
-1. **Clone the repository**
 ```bash
-git clone <your-repo-url>
-cd forensics-ai
-```
+# Clone repository
+git clone git@github.com:Josconicme/Forensics_AI.git
+cd Forensics_AI
 
-2. **Create virtual environment**
-```bash
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-```
+# Create virtual environment
+python -m venv forensics_env
+source forensics_env/bin/activate  # Windows: forensics_env\Scripts\activate
 
-3. **Install dependencies**
-```bash
+# Install dependencies
 pip install -r requirements.txt
-```
 
-4. **Configure environment**
-```bash
+# Configure environment
 cp .env.example .env
-# Edit .env and add your API keys
+# Add your ANTHROPIC_API_KEY to .env
 ```
 
 ### Generate Mock Data
-
 ```bash
 python scripts/generate_mock_data.py
 ```
 
-This creates realistic forensic artifacts in `mock_data/`:
-- System and application logs
-- File metadata with suspicious patterns
-- Network traffic captures
+This creates realistic forensic evidence including:
+- Apache and Windows security logs with attack patterns
+- Suspicious executables and sensitive data files
+- Network traffic captures with malicious activity
 
-### Run Analysis
+## 🔧 Usage - Different Branches
 
+The system has three branches with different execution modes:
+
+### **Branch: `dev`** (Default/Simple Mode/Claude API)
 ```bash
+git checkout dev
 python main.py
 ```
+- Runs basic forensic analysis
+- Uses default configuration
+- Best for quick testing
 
-This will:
-1. Ingest evidence from mock data sources
-2. Run AI-powered analysis using specialized agents
-3. Generate a comprehensive forensic report in `output/`
-
-## 📁 Project Structure
-
-```
-forensics-ai/
-├── docs/
-│   ├── ARCHITECTURE.md          # Detailed system design
-│   ├── STRATEGIC_DISCUSSION.md  # Answers to strategic questions
-│   └── diagrams/                # Architecture diagrams
-├── src/
-│   ├── agents/                  # AI analysis agents
-│   │   ├── base_agent.py
-│   │   ├── log_analysis_agent.py
-│   │   ├── file_analysis_agent.py
-│   │   ├── network_analysis_agent.py
-│   │   └── correlation_agent.py
-│   ├── collectors/              # Evidence collectors
-│   │   ├── base_collector.py
-│   │   ├── log_collector.py
-│   │   ├── file_collector.py
-│   │   └── network_collector.py
-│   ├── storage/                 # Evidence storage
-│   │   └── evidence_store.py
-│   ├── chain_of_custody/        # Audit trail management
-│   │   └── custody_manager.py
-│   ├── analysis/                # Analysis orchestration
-│   │   └── analysis_engine.py
-│   ├── reporting/               # Report generation
-│   │   └── report_generator.py
-│   ├── models/                  # Data models
-│   │   └── evidence.py
-│   ├── utils/                   # Utilities
-│   │   └── crypto.py
-│   └── config.py                # Configuration
-├── scripts/
-│   └── generate_mock_data.py    # Mock data generator
-├── tests/                       # Test suite
-│   ├── test_collectors.py
-│   ├── test_agents.py
-│   └── test_integration.py
-├── mock_data/                   # Generated mock evidence
-├── output/                      # Generated reports
-├── .env.example                 # Environment template
-├── .gitignore
-├── requirements.txt
-└── README.md
-```
-
-## 🔬 Usage Examples
-
-### Basic Analysis
+### **Branch: `master`** (Custom Investigation Mode/OPENAI API)
 ```bash
-python main.py
+git checkout master
+python main.py --mock-data --case-name "Test Investigation"
+```
+- Allows custom case naming
+- Enables mock data processing
+- Suitable for demonstrations
+
+### **Branch: `dev2`** (Demo Mode/OPENAI API )
+```bash
+git checkout dev2
+python main.py --mode demo
+```
+- Full demonstration mode
+- Runs complete investigation workflow
+- Generates comprehensive reports
+
+## 📊 Output
+
+After analysis completes, check `output/` directory:
+```
+output/
+├── reports/
+│   ├── forensic_report_YYYYMMDD_HHMMSS.md    # Human-readable report
+│   └── forensic_report_YYYYMMDD_HHMMSS.json  # Machine-readable data
+├── evidence_db/
+│   └── forensics.db                          # Evidence database
+└── custody/
+    └── chain_of_custody.log                  # Audit trail
 ```
 
-### Custom Evidence Path
-```bash
-python main.py --evidence-path /path/to/evidence
-```
-
-### Generate Report Only
-```bash
-python main.py --report-only --case-id CASE-2024-001
-```
+### Sample Report Findings:
+- **131 Total Findings** (45 Critical, 85 High, 1 Medium)
+- SQL Injection attacks detected
+- Brute force authentication attempts
+- Suspicious account creation
+- Data exfiltration patterns
+- Complete attack chain correlation
 
 ## 🤖 AI Agents
 
-The system uses specialized AI agents for different analysis tasks:
+| Agent | Purpose | Detection Capabilities |
+|-------|---------|----------------------|
+| **Log Analysis** | System & application logs | Brute force, privilege escalation, suspicious commands |
+| **File Analysis** | Executables & documents | Malware patterns, sensitive data exposure |
+| **Network Analysis** | Traffic captures | C2 communications, port scans, data exfiltration |
+| **Correlation** | Cross-evidence analysis | Attack chain reconstruction, timeline building |
 
-- **Log Analysis Agent**: Detects authentication failures, privilege escalations, suspicious commands
-- **File Analysis Agent**: Identifies malware signatures, data exfiltration patterns, unauthorized modifications
-- **Network Analysis Agent**: Analyzes traffic patterns, C2 communications, port scans
-- **Correlation Agent**: Connects findings across sources to reconstruct attack timelines
+## 🔐 Security & Compliance
 
-## 🔐 Security Features
+- ✅ **SHA-256 Cryptographic Hashing** - Evidence integrity verification
+- ✅ **Immutable Chain of Custody** - Complete audit trail with timestamps
+- ✅ **PII Detection & Masking** - Automatic sensitive data protection
+- ✅ **Role-Based Access Control** - Secure evidence handling
+- ✅ **Legal Admissibility** - Court-ready forensic documentation
 
-- **Cryptographic Hashing**: SHA-256 verification for evidence integrity
-- **Chain of Custody**: Immutable audit trail with timestamps and agent signatures
-- **Evidence Isolation**: Secure storage with access controls
-- **PII Protection**: Automatic detection and masking of sensitive data
-
-## 📊 Sample Output
-
-After running the analysis, you'll find in `output/`:
-
-- `forensic_report_CASE-XXX.json` - Structured findings
-- `forensic_report_CASE-XXX.md` - Human-readable report
-- `timeline_CASE-XXX.json` - Incident timeline
-- `chain_of_custody_CASE-XXX.json` - Audit trail
+## 📁 Project Structure
+```
+forensics-ai/
+├── src/
+│   ├── agents/              # AI analysis agents
+│   ├── collectors/          # Evidence collectors
+│   ├── storage/             # Evidence database
+│   ├── chain_of_custody/    # Audit trail
+│   ├── analysis/            # Analysis orchestration
+│   ├── reporting/           # Report generation
+│   └── config.py
+├── scripts/
+│   └── generate_mock_data.py
+├── mock_data/               # Sample evidence
+├── output/                  # Generated reports
+├── docs/                    # Documentation
+│   ├── ARCHITECTURE.md
+│   └── STRATEGIC_DISCUSSION.md
+├── main.py                  # Entry point
+└── requirements.txt
+```
 
 ## 🧪 Testing
-
 ```bash
 # Run all tests
 pytest
@@ -201,71 +170,80 @@ pytest
 # Run with coverage
 pytest --cov=src --cov-report=html
 
-# Run specific test
-pytest tests/test_agents.py -v
+# Verify setup
+python verify_setup.py
 ```
 
 ## 📖 Documentation
 
-- [Architecture Document](docs/ARCHITECTURE.md) - Detailed system design
-- [Strategic Discussion](docs/STRATEGIC_DISCUSSION.md) - Answers to evaluation questions
-- [API Documentation](docs/API.md) - Code reference
+- **[Architecture Document](docs/ARCHITECTURE.md)** - System design and workflows
+- **[Strategic Discussion](docs/STRATEGIC_DISCUSSION.md)** - Legal compliance, scalability, security
+- **[API Reference](docs/API.md)** - Code documentation
 
-## 🎯 Design Principles
+## 🎯 Key Design Principles
 
-1. **Evidence Integrity First**: Every operation logged and hashed
-2. **AI Transparency**: All agent decisions include reasoning and confidence scores
-3. **Modular Architecture**: Easy to extend with new collectors and agents
-4. **Legal Compliance**: Built-in chain of custody and audit trails
-5. **Human-in-the-Loop**: Findings require analyst validation
+1. **Evidence Integrity** - Every operation cryptographically verified
+2. **AI Transparency** - All decisions include confidence scores and reasoning
+3. **Modular Design** - Easy to extend with new collectors and agents
+4. **Human Oversight** - Findings require analyst validation
+5. **Legal Compliance** - Built-in chain of custody for court admissibility
 
-## 🔄 Extending the System
+## 🛠️ Extending the System
 
-### Adding a New Collector
-
+### Add a New Evidence Collector
 ```python
-from src.collectors.base_collector import BaseCollector
+from collectors.base_collector import BaseCollector
 
 class CustomCollector(BaseCollector):
-    def collect(self, source_path: str) -> List[Evidence]:
+    def collect(self, source_path: str):
         # Your collection logic
         pass
 ```
 
-### Adding a New Agent
-
+### Add a New Analysis Agent
 ```python
-from src.agents.base_agent import BaseAgent
+from agents.base_agent import BaseAgent
 
 class CustomAgent(BaseAgent):
-    async def analyze(self, evidence: List[Evidence]) -> Dict:
+    def analyze(self, evidence_list):
         # Your analysis logic
         pass
 ```
 
-## 🛣️ Roadmap
+## 🚧 Roadmap
 
-- [ ] Real-time streaming analysis
-- [ ] Memory forensics integration
+- [ ] Real-time streaming analysis for active threat hunting
+- [ ] Memory forensics integration (Volatility)
 - [ ] Cloud evidence collection (AWS, Azure, GCP)
-- [ ] Advanced ML models for anomaly detection
-- [ ] Multi-tenancy support
+- [ ] Advanced ML anomaly detection models
 - [ ] Web-based investigation dashboard
+- [ ] Multi-tenancy support for enterprise deployments
 
-## 📝 License
+## ⚠️ Important Notes
 
-This project is for educational and demonstration purposes as part of Ibn Sina Corporation's assessment.
+- **API Credits**: AI analysis requires Anthropic API credits. System gracefully degrades to pattern-based analysis if API is unavailable.
+- **Mock Data**: Always run `generate_mock_data.py` before first execution.
+- **Performance**: Analysis of 292 evidence items completes in ~40-45 seconds.
 
-## 🤝 Contributing
+## 📝 Assessment Information
 
-This is an assessment project. For questions or issues, please contact the development team.
+This project was developed as part of Ibn Sina Corporation's AI-Powered Digital Forensics System assessment, demonstrating:
+- Multi-agent AI architecture
+- Forensic evidence handling
+- Automated security analysis
+- Legal compliance considerations
 
-## 👥 Authors
+## 👥 Author
 
-Developed as part of Ibn Sina Corporation's AI-Powered Digital Forensics System assessment.
+Developed for Ibn Sina Corporation Technical Assessment
 
-## 🙏 Acknowledgments
+## 🙏 Technologies Used
 
-- LangChain for agent orchestration
-- Anthropic Claude for AI analysis
-- Digital forensics community for best practices
+- **Python 3.9+** - Core language
+- **Anthropic Claude** - AI analysis engine
+- **SQLite** - Evidence storage
+- **Cryptography** - Evidence integrity verification
+
+---
+
+**Ready to investigate?** Run `python main.py --mode demo` to see the system in action! 🔍
