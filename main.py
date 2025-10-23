@@ -18,24 +18,57 @@ from storage.evidence_store import EvidenceStore
 from chain_of_custody.custody_manager import CustodyManager
 from analysis.analysis_engine import AnalysisEngine
 from reporting.report_generator import ReportGenerator
-from config import Config
+from config import config
 
 
 class ForensicsSystem:
     """Main forensics system orchestrator"""
     
-    def __init__(self, config: Config):
-        self.config = config
+    def __init__(self, cfg):
+        self.config = cfg
         
         # Initialize components
         print("[System] Initializing Digital Forensics System...")
-        self.evidence_store = EvidenceStore(config.DB_PATH)
-        self.custody_manager = CustodyManager(config.CUSTODY_LOG_PATH)
+        print(f"[System] AI Provider: {self.config.AI_PROVIDER.upper()}")
+        
+        # Display which model is being used
+        if self.config.AI_PROVIDER == 'openai':
+            print(f"[System] Model: {self.config.OPENAI_MODEL}")
+        elif self.config.AI_PROVIDER == 'anthropic':
+            print(f"[System] Model: {self.config.ANTHROPIC_MODEL}")
+        
+        self.evidence_store = EvidenceStore(self.config.DB_PATH)
+        self.custody_manager = CustodyManager(self.config.CUSTODY_LOG_PATH)
+        
+        # Initialize LLM client based on provider
+        llm_client = None
+        api_key = None
+        
+        if self.config.AI_PROVIDER == 'openai':
+            if self.config.OPENAI_API_KEY:
+                from openai import OpenAI
+                llm_client = OpenAI(api_key=self.config.OPENAI_API_KEY)
+                api_key = self.config.OPENAI_API_KEY
+                print("[System] ✓ OpenAI client initialized")
+            else:
+                print("[System] ⚠️  WARNING: No OpenAI API key found")
+        elif self.config.AI_PROVIDER == 'anthropic':
+            if self.config.ANTHROPIC_API_KEY:
+                from anthropic import Anthropic
+                llm_client = Anthropic(api_key=self.config.ANTHROPIC_API_KEY)
+                api_key = self.config.ANTHROPIC_API_KEY
+                print("[System] ✓ Anthropic client initialized")
+            else:
+                print("[System] ⚠️  WARNING: No Anthropic API key found")
+        else:
+            print(f"[System] ⚠️  WARNING: Unknown AI provider: {self.config.AI_PROVIDER}")
+        
+        # Initialize analysis engine with LLM client
         self.analysis_engine = AnalysisEngine(
             evidence_store=self.evidence_store,
-            api_key=config.ANTHROPIC_API_KEY
+            api_key=api_key
         )
-        self.report_generator = ReportGenerator(config.REPORT_OUTPUT_DIR)
+        self.report_generator = ReportGenerator(self.config.REPORT_OUTPUT_DIR)
         
         # Initialize collectors
         self.log_collector = LogCollector(
@@ -70,28 +103,37 @@ class ForensicsSystem:
         if 'logs' in evidence_paths and evidence_paths['logs']:
             print("\n[Collection] Collecting log evidence...")
             for log_path in evidence_paths['logs']:
-                evidence = self.log_collector.collect(log_path)
-                if evidence:
-                    total_collected += 1
-                    print(f"  ✓ Collected: {log_path}")
+                try:
+                    evidence = self.log_collector.collect(log_path)
+                    if evidence:
+                        total_collected += 1
+                        print(f"  ✓ Collected: {log_path}")
+                except Exception as e:
+                    print(f"  ✗ Failed to collect {log_path}: {e}")
         
         # Collect files
         if 'files' in evidence_paths and evidence_paths['files']:
             print("\n[Collection] Collecting file evidence...")
             for file_path in evidence_paths['files']:
-                evidence = self.file_collector.collect(file_path)
-                if evidence:
-                    total_collected += 1
-                    print(f"  ✓ Collected: {file_path}")
+                try:
+                    evidence = self.file_collector.collect(file_path)
+                    if evidence:
+                        total_collected += 1
+                        print(f"  ✓ Collected: {file_path}")
+                except Exception as e:
+                    print(f"  ✗ Failed to collect {file_path}: {e}")
         
         # Collect network captures
         if 'network' in evidence_paths and evidence_paths['network']:
             print("\n[Collection] Collecting network evidence...")
             for net_path in evidence_paths['network']:
-                evidence = self.network_collector.collect(net_path)
-                if evidence:
-                    total_collected += 1
-                    print(f"  ✓ Collected: {net_path}")
+                try:
+                    evidence = self.network_collector.collect(net_path)
+                    if evidence:
+                        total_collected += 1
+                        print(f"  ✓ Collected: {net_path}")
+                except Exception as e:
+                    print(f"  ✗ Failed to collect {net_path}: {e}")
         
         print(f"\n[Collection] Total evidence items collected: {total_collected}")
         print(f"[Collection] Evidence stored in: {self.config.DB_PATH}")
@@ -111,6 +153,7 @@ class ForensicsSystem:
         print("=" * 70)
         print("PHASE 2: AI-POWERED ANALYSIS")
         print("=" * 70)
+        print(f"Using: {self.config.AI_PROVIDER.upper()}")
         print()
         
         findings = self.analysis_engine.analyze_all_evidence()
@@ -122,13 +165,23 @@ class ForensicsSystem:
             # Show summary by severity
             severity_counts = {}
             for finding in findings:
-                severity_counts[finding.severity] = severity_counts.get(finding.severity, 0) + 1
+                # Handle both dict and object
+                severity = finding.get('severity') if isinstance(finding, dict) else finding.severity
+                severity = severity.lower() if severity else 'unknown'
+                severity_counts[severity] = severity_counts.get(severity, 0) + 1
             
             print("\n[Analysis] Findings by severity:")
             for severity in ['critical', 'high', 'medium', 'low', 'info']:
                 count = severity_counts.get(severity, 0)
                 if count > 0:
-                    print(f"  - {severity.upper()}: {count}")
+                    icon = "🔴" if severity == 'critical' else "🟠" if severity == 'high' else "🟡" if severity == 'medium' else "🟢"
+                    print(f"  {icon} {severity.upper()}: {count}")
+            
+            # Show confidence stats
+            if findings:
+                confidences = [f.get('confidence', 0) if isinstance(f, dict) else f.confidence for f in findings]
+                avg_confidence = sum(confidences) / len(confidences) if confidences else 0
+                print(f"\n[Analysis] Average confidence: {avg_confidence:.1%}")
         else:
             print("[Analysis] No findings identified.")
         
@@ -152,7 +205,7 @@ class ForensicsSystem:
             evidence_store=self.evidence_store,
             timeline=timeline,
             summary_stats=summary_stats,
-            case_name="AI-Powered Forensic Investigation"
+            case_name=f"AI-Powered Forensic Investigation ({self.config.AI_PROVIDER.upper()})"
         )
         
         # Generate JSON report
@@ -163,7 +216,8 @@ class ForensicsSystem:
         )
         
         print(f"\n[Report] Markdown report: {md_report_path}")
-        print(f"[Report] JSON report: {json_report_path}\n")
+        print(f"[Report] JSON report: {json_report_path}")
+        print(f"[Report] AI Provider: {self.config.AI_PROVIDER.upper()}\n")
         
         return md_report_path, json_report_path
     
@@ -175,6 +229,11 @@ class ForensicsSystem:
         print(" AI-POWERED DIGITAL FORENSICS SYSTEM")
         print("=" * 70)
         print(f" Investigation started: {start_time.strftime('%Y-%m-%d %H:%M:%S')}")
+        print(f" AI Provider: {self.config.AI_PROVIDER.upper()}")
+        if self.config.AI_PROVIDER == 'openai':
+            print(f" Model: {self.config.OPENAI_MODEL}")
+        elif self.config.AI_PROVIDER == 'anthropic':
+            print(f" Model: {self.config.ANTHROPIC_MODEL}")
         print("=" * 70 + "\n")
         
         # Phase 1: Collection
@@ -194,6 +253,7 @@ class ForensicsSystem:
         print("INVESTIGATION COMPLETE")
         print("=" * 70)
         print(f"Duration: {duration:.2f} seconds")
+        print(f"AI Provider: {self.config.AI_PROVIDER.upper()}")
         print(f"Reports generated in: {self.config.REPORT_OUTPUT_DIR}")
         print("=" * 70 + "\n")
         
@@ -224,13 +284,28 @@ class ForensicsSystem:
 def main():
     """Main entry point with CLI interface"""
     parser = argparse.ArgumentParser(
-        description="AI-Powered Digital Forensics System"
+        description="AI-Powered Digital Forensics System",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Run demo with mock data
+  python main.py --mode demo
+  
+  # Analyze custom files with OpenAI
+  python main.py --mode custom --files /path/to/file1 /path/to/file2
+  
+  # Show chain of custody
+  python main.py --custody
+  
+  # Use specific AI provider (set in .env):
+  # AI_PROVIDER=openai or AI_PROVIDER=anthropic
+        """
     )
     parser.add_argument(
         '--mode',
         choices=['demo', 'custom', 'analyze', 'report'],
         default='demo',
-        help='Operation mode'
+        help='Operation mode (default: demo)'
     )
     parser.add_argument(
         '--logs',
@@ -252,19 +327,40 @@ def main():
         action='store_true',
         help='Show chain of custody log'
     )
+    parser.add_argument(
+        '--provider',
+        choices=['openai', 'anthropic'],
+        help='Override AI provider from .env file'
+    )
     
     args = parser.parse_args()
     
     # Load configuration
-    config = Config()
-    config.validate()
+    cfg = config
+    
+    # Override provider if specified
+    if args.provider:
+        cfg.AI_PROVIDER = args.provider
+        print(f"[CLI] Overriding AI provider to: {args.provider}")
+    
+    # Validate configuration
+    cfg.validate()
+    
+    # Display configuration
+    if args.mode != 'custody':
+        cfg.display()
     
     # Initialize system
-    forensics_system = ForensicsSystem(config)
+    try:
+        forensics_system = ForensicsSystem(cfg)
+    except Exception as e:
+        print(f"\n❌ Error initializing system: {e}")
+        print("\nPlease check your .env file configuration.")
+        return 1
     
     if args.custody:
         forensics_system.show_custody_chain()
-        return
+        return 0
     
     if args.mode == 'demo':
         # Run with demo/mock data
@@ -295,9 +391,9 @@ def main():
         }
         
         if not any(evidence_paths.values()):
-            print("Error: No evidence paths specified.")
+            print("❌ Error: No evidence paths specified.")
             print("Use --logs, --files, or --network to specify paths.")
-            return
+            return 1
         
         forensics_system.run_full_investigation(evidence_paths)
     
@@ -311,7 +407,9 @@ def main():
         # Generate report only
         print("Generating report from existing analysis...\n")
         forensics_system.generate_report()
+    
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

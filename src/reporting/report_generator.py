@@ -1,16 +1,11 @@
 # src/reporting/report_generator.py
 """
-Automated forensic report generation
+Report Generator - Creates forensic analysis reports
 """
-from datetime import datetime
-from typing import List, Dict, Any
-from pathlib import Path
 import json
-import sys
-sys.path.append(str(Path(__file__).parent.parent))
-
-from models.evidence import Finding, Evidence
-from storage.evidence_store import EvidenceStore
+from datetime import datetime
+from pathlib import Path
+from typing import List, Dict, Any
 
 
 class ReportGenerator:
@@ -22,236 +17,213 @@ class ReportGenerator:
     
     def generate_markdown_report(
         self,
-        findings: List[Finding],
-        evidence_store: EvidenceStore,
-        timeline: List[Dict[str, Any]],
-        summary_stats: Dict[str, Any],
-        case_name: str = "Digital Forensics Investigation"
+        findings: List[Dict[str, Any]],
+        evidence_store=None,
+        timeline: List[Dict[str, Any]] = None,
+        summary_stats: Dict[str, Any] = None,
+        case_name: str = "Forensic Investigation"
     ) -> str:
-        """Generate comprehensive markdown report"""
+        """Generate markdown report"""
         
-        report_timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        report_filename = f"forensic_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md"
-        report_path = self.output_dir / report_filename
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"forensic_report_{timestamp}.md"
+        filepath = self.output_dir / filename
         
-        # Build report content
-        report_lines = []
-        
-        # Header
-        report_lines.append(f"# Forensic Investigation Report")
-        report_lines.append(f"## {case_name}\n")
-        report_lines.append(f"**Report Generated:** {report_timestamp}\n")
-        report_lines.append(f"**Report ID:** {report_filename}\n")
-        report_lines.append("---\n")
-        
-        # Executive Summary
-        report_lines.append("## Executive Summary\n")
-        report_lines.append(f"This forensic investigation analyzed **{summary_stats.get('evidence_analyzed', 0)} pieces of evidence** ")
-        report_lines.append(f"and identified **{summary_stats.get('total_findings', 0)} security findings**.\n")
-        
-        critical_high = summary_stats.get('high_severity_count', 0)
-        if critical_high > 0:
-            report_lines.append(f"⚠️ **{critical_high} high-severity findings require immediate attention.**\n")
-        
-        report_lines.append(f"Average finding confidence: **{summary_stats.get('average_confidence', 0):.0%}**\n")
-        report_lines.append("---\n")
-        
-        # Key Findings Summary
-        report_lines.append("## Key Findings Summary\n")
-        severity_counts = summary_stats.get('findings_by_severity', {})
-        
-        for severity in ['critical', 'high', 'medium', 'low', 'info']:
-            count = severity_counts.get(severity, 0)
-            if count > 0:
-                icon = self._get_severity_icon(severity)
-                report_lines.append(f"- {icon} **{severity.upper()}**: {count} finding(s)")
-        
-        report_lines.append("\n---\n")
-        
-        # Detailed Findings
-        report_lines.append("## Detailed Findings\n")
-        
-        for idx, finding in enumerate(findings, 1):
-            icon = self._get_severity_icon(finding.severity)
-            report_lines.append(f"### {idx}. {icon} {finding.title}\n")
-            report_lines.append(f"**Finding ID:** `{finding.finding_id}`  ")
-            report_lines.append(f"**Severity:** {finding.severity.upper()}  ")
-            report_lines.append(f"**Confidence:** {finding.confidence:.0%}  ")
-            report_lines.append(f"**Timestamp:** {finding.timestamp.strftime('%Y-%m-%d %H:%M:%S')}\n")
+        with open(filepath, 'w', encoding='utf-8') as f:
+            # Header
+            f.write(f"# {case_name}\n\n")
+            f.write(f"**Report Generated:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
+            f.write("---\n\n")
             
-            report_lines.append(f"**Description:**  \n{finding.description}\n")
+            # Executive Summary
+            f.write("## Executive Summary\n\n")
+            if summary_stats:
+                f.write(f"- **Total Findings:** {summary_stats.get('total_findings', 0)}\n")
+                f.write(f"- **Evidence Analyzed:** {summary_stats.get('evidence_analyzed', 0)} items\n")
+                f.write(f"- **Average Confidence:** {summary_stats.get('average_confidence', 0):.1%}\n")
+                f.write(f"- **High Priority Findings:** {summary_stats.get('high_severity_count', 0)}\n\n")
+                
+                if 'findings_by_severity' in summary_stats:
+                    f.write("**Findings by Severity:**\n")
+                    for severity, count in summary_stats['findings_by_severity'].items():
+                        icon = self._get_severity_icon(severity)
+                        f.write(f"- {icon} {severity.upper()}: {count}\n")
+                    f.write("\n")
             
-            # Indicators
-            if finding.indicators:
-                report_lines.append("**Key Indicators:**")
-                for key, value in finding.indicators.items():
-                    report_lines.append(f"- {key}: `{value}`")
-                report_lines.append("")
+            f.write("---\n\n")
             
-            # Evidence references
-            if finding.evidence_ids:
-                report_lines.append(f"**Related Evidence:** {', '.join([f'`{eid}`' for eid in finding.evidence_ids])}\n")
+            # Critical Findings
+            critical_findings = [f for f in findings if self._get_finding_severity(f).lower() == 'critical']
+            if critical_findings:
+                f.write("## 🔴 CRITICAL FINDINGS\n\n")
+                f.write("**⚠️ IMMEDIATE ACTION REQUIRED**\n\n")
+                for finding in critical_findings:
+                    self._write_finding(f, finding)
+                f.write("---\n\n")
+            
+            # High Priority Findings
+            high_findings = [f for f in findings if self._get_finding_severity(f).lower() == 'high']
+            if high_findings:
+                f.write("## 🟠 HIGH PRIORITY FINDINGS\n\n")
+                for finding in high_findings:
+                    self._write_finding(f, finding)
+                f.write("---\n\n")
+            
+            # Medium Findings
+            medium_findings = [f for f in findings if self._get_finding_severity(f).lower() == 'medium']
+            if medium_findings:
+                f.write("## 🟡 MEDIUM PRIORITY FINDINGS\n\n")
+                for finding in medium_findings:
+                    self._write_finding(f, finding)
+                f.write("---\n\n")
+            
+            # Low/Info Findings
+            low_findings = [f for f in findings if self._get_finding_severity(f).lower() in ['low', 'info']]
+            if low_findings:
+                f.write("## 🟢 INFORMATIONAL FINDINGS\n\n")
+                for finding in low_findings:
+                    self._write_finding(f, finding)
+                f.write("---\n\n")
+            
+            # Timeline
+            if timeline:
+                f.write("## Timeline\n\n")
+                for event in timeline[-20:]:  # Last 20 events
+                    ts = event.get('timestamp')
+                    if isinstance(ts, str):
+                        ts_str = ts
+                    else:
+                        ts_str = ts.strftime('%Y-%m-%d %H:%M:%S') if ts else 'Unknown'
+                    f.write(f"- **{ts_str}**: {event.get('description', 'Unknown event')}\n")
+                f.write("\n---\n\n")
             
             # Recommendations
-            if finding.recommendations:
-                report_lines.append("**Recommendations:**")
-                for rec in finding.recommendations:
-                    report_lines.append(f"- {rec}")
-                report_lines.append("")
+            f.write("## Recommendations\n\n")
+            self._write_recommendations(f, findings)
             
-            report_lines.append("---\n")
+            # Footer
+            f.write("\n---\n\n")
+            f.write("*This report was generated by AI-Powered Digital Forensics System*\n")
         
-        # Timeline
-        report_lines.append("## Incident Timeline\n")
-        report_lines.append("Chronological sequence of events based on evidence analysis:\n")
-        
-        for event in timeline[-20:]:  # Show last 20 events
-            timestamp_str = event['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
-            event_type = event.get('event_type', 'unknown')
-            
-            if event_type == 'finding':
-                severity = event.get('severity', 'info')
-                icon = self._get_severity_icon(severity)
-                report_lines.append(f"- **{timestamp_str}** {icon} {event['description']}")
-            else:
-                report_lines.append(f"- **{timestamp_str}** 📁 {event['description']}")
-        
-        report_lines.append("\n---\n")
-        
-        # Evidence Inventory
-        report_lines.append("## Evidence Inventory\n")
-        all_evidence = evidence_store.get_all_evidence()
-        
-        evidence_by_type = {}
-        for evidence in all_evidence:
-            if evidence.evidence_type not in evidence_by_type:
-                evidence_by_type[evidence.evidence_type] = []
-            evidence_by_type[evidence.evidence_type].append(evidence)
-        
-        for etype, evidence_list in evidence_by_type.items():
-            report_lines.append(f"### {etype.upper()} Evidence ({len(evidence_list)} items)\n")
-            report_lines.append("| Evidence ID | Source Path | Collected | Size | SHA256 Hash |")
-            report_lines.append("|------------|-------------|-----------|------|-------------|")
-            
-            for evidence in evidence_list[:10]:  # Limit to 10 per type
-                size_kb = len(evidence.data) / 1024
-                timestamp_str = evidence.collected_timestamp.strftime('%Y-%m-%d %H:%M')
-                hash_short = evidence.hash_sha256[:16] + "..."
-                source_short = evidence.source_path[-40:] if len(evidence.source_path) > 40 else evidence.source_path
-                
-                report_lines.append(
-                    f"| `{evidence.evidence_id}` | `{source_short}` | {timestamp_str} | {size_kb:.1f} KB | `{hash_short}` |"
-                )
-            
-            report_lines.append("")
-        
-        report_lines.append("---\n")
-        
-        # Chain of Custody Note
-        report_lines.append("## Chain of Custody\n")
-        report_lines.append("All evidence items have been collected with cryptographic hash verification ")
-        report_lines.append("to ensure integrity. Each piece of evidence includes:\n")
-        report_lines.append("- Unique evidence identifier")
-        report_lines.append("- SHA-256 and MD5 hash values")
-        report_lines.append("- Collection timestamp")
-        report_lines.append("- Collector information")
-        report_lines.append("- Source path and metadata\n")
-        report_lines.append("Evidence integrity can be verified at any time by recomputing hashes.\n")
-        report_lines.append("---\n")
-        
-        # Methodology
-        report_lines.append("## Analysis Methodology\n")
-        report_lines.append("This investigation utilized AI-powered multi-agent analysis:\n")
-        report_lines.append("1. **Evidence Collection**: Automated collectors gathered artifacts with hash verification")
-        report_lines.append("2. **Specialized Analysis**: Domain-specific AI agents analyzed different evidence types")
-        report_lines.append("3. **Correlation**: Cross-reference analysis identified patterns across evidence sources")
-        report_lines.append("4. **Confidence Scoring**: Each finding includes a confidence metric based on evidence strength")
-        report_lines.append("5. **Timeline Reconstruction**: Events ordered chronologically for incident understanding\n")
-        report_lines.append("---\n")
-        
-        # Conclusions
-        report_lines.append("## Conclusions and Recommendations\n")
-        
-        critical_findings = [f for f in findings if f.severity in ['critical', 'high']]
-        if critical_findings:
-            report_lines.append("### Immediate Actions Required\n")
-            for finding in critical_findings[:5]:
-                report_lines.append(f"**{finding.title}**")
-                if finding.recommendations:
-                    for rec in finding.recommendations[:2]:
-                        report_lines.append(f"- {rec}")
-                report_lines.append("")
-        
-        report_lines.append("### Next Steps\n")
-        report_lines.append("1. Review and validate all high-severity findings")
-        report_lines.append("2. Implement recommended security controls")
-        report_lines.append("3. Conduct additional targeted investigation if needed")
-        report_lines.append("4. Preserve evidence for potential legal proceedings")
-        report_lines.append("5. Update incident response procedures based on lessons learned\n")
-        
-        report_lines.append("---\n")
-        report_lines.append(f"*Report generated by AI-Powered Digital Forensics System*  ")
-        report_lines.append(f"*Generated at: {report_timestamp}*\n")
-        
-        # Write report to file
-        report_content = "\n".join(report_lines)
-        with open(report_path, 'w', encoding='utf-8') as f:
-            f.write(report_content)
-        
-        print(f"[ReportGenerator] Report generated: {report_path}")
-        return str(report_path)
+        print(f"[ReportGenerator] Report generated: {filepath}")
+        return str(filepath)
     
     def generate_json_report(
         self,
-        findings: List[Finding],
-        timeline: List[Dict[str, Any]],
-        summary_stats: Dict[str, Any]
+        findings: List[Dict[str, Any]],
+        timeline: List[Dict[str, Any]] = None,
+        summary_stats: Dict[str, Any] = None
     ) -> str:
-        """Generate machine-readable JSON report"""
+        """Generate JSON report"""
         
-        report_filename = f"forensic_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-        report_path = self.output_dir / report_filename
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"forensic_report_{timestamp}.json"
+        filepath = self.output_dir / filename
         
         report_data = {
-            'report_metadata': {
+            'metadata': {
                 'generated_at': datetime.now().isoformat(),
-                'report_id': report_filename,
-                'format_version': '1.0'
+                'report_version': '1.0',
+                'total_findings': len(findings)
             },
-            'summary': summary_stats,
-            'findings': [f.to_dict() for f in findings],
-            'timeline': [
-                {
-                    **event,
-                    'timestamp': event['timestamp'].isoformat()
-                }
-                for event in timeline
-            ]
+            'summary_statistics': summary_stats or {},
+            'findings': findings,
+            'timeline': timeline or []
         }
         
-        with open(report_path, 'w', encoding='utf-8') as f:
-            json.dump(report_data, f, indent=2)
+        with open(filepath, 'w', encoding='utf-8') as f:
+            json.dump(report_data, f, indent=2, default=str)
         
-        print(f"[ReportGenerator] JSON report generated: {report_path}")
-        return str(report_path)
+        print(f"[ReportGenerator] JSON report generated: {filepath}")
+        return str(filepath)
+    
+    def _get_finding_severity(self, finding: Dict[str, Any]) -> str:
+        """Get severity from finding dict"""
+        if isinstance(finding, dict):
+            return finding.get('severity', 'unknown')
+        else:
+            return getattr(finding, 'severity', 'unknown')
     
     def _get_severity_icon(self, severity: str) -> str:
         """Get emoji icon for severity level"""
+        severity_lower = str(severity).lower()
         icons = {
             'critical': '🔴',
             'high': '🟠',
             'medium': '🟡',
-            'low': '🔵',
+            'low': '🟢',
             'info': 'ℹ️'
         }
-        return icons.get(severity, '⚪')
+        return icons.get(severity_lower, '⚪')
     
-    def generate_executive_summary(self, findings: List[Finding]) -> str:
-        """Generate brief executive summary"""
-        critical_high = len([f for f in findings if f.severity in ['critical', 'high']])
+    def _write_finding(self, f, finding: Dict[str, Any]):
+        """Write a single finding to markdown"""
+        # Handle both dict and object
+        if isinstance(finding, dict):
+            title = finding.get('title', 'Unknown Finding')
+            description = finding.get('description', 'No description')
+            severity = finding.get('severity', 'unknown')
+            confidence = finding.get('confidence', 0)
+            agent = finding.get('agent_name', 'Unknown')
+            mitre_techniques = finding.get('mitre_techniques', [])
+            iocs = finding.get('iocs', [])
+            remediation = finding.get('remediation', [])
+        else:
+            title = getattr(finding, 'title', 'Unknown Finding')
+            description = getattr(finding, 'description', 'No description')
+            severity = getattr(finding, 'severity', 'unknown')
+            confidence = getattr(finding, 'confidence', 0)
+            agent = getattr(finding, 'agent_name', 'Unknown')
+            mitre_techniques = getattr(finding, 'mitre_techniques', [])
+            iocs = getattr(finding, 'iocs', [])
+            remediation = getattr(finding, 'remediation', [])
         
-        summary = f"Investigation identified {len(findings)} findings"
-        if critical_high > 0:
-            summary += f", including {critical_high} requiring immediate attention"
+        icon = self._get_severity_icon(severity)
         
-        return summary
+        f.write(f"### {icon} {title}\n\n")
+        f.write(f"**Severity:** {severity.upper()} | **Confidence:** {confidence:.0%} | **Agent:** {agent}\n\n")
+        f.write(f"{description}\n\n")
+        
+        if mitre_techniques:
+            f.write(f"**MITRE ATT&CK Techniques:** {', '.join(mitre_techniques)}\n\n")
+        
+        if iocs:
+            f.write(f"**Indicators of Compromise (IOCs):**\n")
+            for ioc in iocs[:10]:  # Limit to 10
+                f.write(f"- `{ioc}`\n")
+            f.write("\n")
+        
+        if remediation:
+            f.write(f"**Recommended Actions:**\n")
+            for action in remediation:
+                f.write(f"- {action}\n")
+            f.write("\n")
+        
+        f.write("\n")
+    
+    def _write_recommendations(self, f, findings: List[Dict[str, Any]]):
+        """Write overall recommendations"""
+        critical_count = sum(1 for finding in findings if self._get_finding_severity(finding).lower() == 'critical')
+        high_count = sum(1 for finding in findings if self._get_finding_severity(finding).lower() == 'high')
+        
+        if critical_count > 0:
+            f.write("### 🚨 CRITICAL PRIORITY\n\n")
+            f.write(f"- **{critical_count} critical findings require immediate attention**\n")
+            f.write("- Activate incident response team immediately\n")
+            f.write("- Consider isolating affected systems\n")
+            f.write("- Begin containment procedures\n\n")
+        
+        if high_count > 0:
+            f.write("### ⚠️ HIGH PRIORITY\n\n")
+            f.write(f"- **{high_count} high priority findings identified**\n")
+            f.write("- Review and investigate within 24 hours\n")
+            f.write("- Implement recommended security controls\n")
+            f.write("- Document all findings and actions taken\n\n")
+        
+        f.write("### 📋 GENERAL RECOMMENDATIONS\n\n")
+        f.write("- Preserve all evidence for potential legal proceedings\n")
+        f.write("- Maintain detailed chain of custody documentation\n")
+        f.write("- Conduct thorough post-incident analysis\n")
+        f.write("- Update security policies and procedures based on findings\n")
+        f.write("- Provide security awareness training to staff\n")
+        f.write("- Schedule follow-up security assessment\n")

@@ -14,9 +14,16 @@ class ForensicsConfig:
     """Configuration settings for the forensics system"""
     
     def __init__(self):
-        # API Configuration
+        # AI Provider Configuration
+        self.AI_PROVIDER = os.getenv('AI_PROVIDER', 'openai').lower()
+        
+        # Anthropic Configuration
         self.ANTHROPIC_API_KEY = os.getenv('ANTHROPIC_API_KEY', '')
-        self.ANTHROPIC_MODEL = os.getenv('ANTHROPIC_MODEL', 'claude-sonnet-4-5-20250929')
+        self.ANTHROPIC_MODEL = os.getenv('CLAUDE_MODEL', 'claude-sonnet-4-20250514')
+        
+        # OpenAI Configuration
+        self.OPENAI_API_KEY = os.getenv('OPENAI_API_KEY', '')
+        self.OPENAI_MODEL = os.getenv('OPENAI_MODEL', 'gpt-4o')
         
         # Collector Configuration
         self.COLLECTOR_NAME = os.getenv('COLLECTOR_NAME', 'ForensicsCollector')
@@ -38,10 +45,19 @@ class ForensicsConfig:
     
     def validate(self):
         """Validate configuration and create necessary directories"""
-        if not self.ANTHROPIC_API_KEY:
-            print("⚠️  WARNING: ANTHROPIC_API_KEY not set in .env file")
-            print("   AI-powered analysis will be limited or may fail")
-            print("   Please add your API key to the .env file")
+        if self.AI_PROVIDER == 'openai':
+            if not self.OPENAI_API_KEY:
+                print("⚠️  WARNING: OPENAI_API_KEY not set in .env file")
+                print("   AI-powered analysis will be limited or may fail")
+                print("   Please add your API key to the .env file")
+        elif self.AI_PROVIDER == 'anthropic':
+            if not self.ANTHROPIC_API_KEY:
+                print("⚠️  WARNING: ANTHROPIC_API_KEY not set in .env file")
+                print("   AI-powered analysis will be limited or may fail")
+                print("   Please add your API key to the .env file")
+        else:
+            print(f"⚠️  WARNING: Unknown AI_PROVIDER: {self.AI_PROVIDER}")
+            print("   Valid options are: 'openai' or 'anthropic'")
         
         # Create directories if they don't exist
         Path(self.DB_PATH).parent.mkdir(parents=True, exist_ok=True)
@@ -53,8 +69,15 @@ class ForensicsConfig:
         print("\n" + "=" * 70)
         print("CONFIGURATION")
         print("=" * 70)
-        print(f"API Key Set: {'Yes' if self.ANTHROPIC_API_KEY else 'No'}")
-        print(f"Model: {self.ANTHROPIC_MODEL}")
+        print(f"AI Provider: {self.AI_PROVIDER.upper()}")
+        
+        if self.AI_PROVIDER == 'openai':
+            print(f"API Key Set: {'Yes' if self.OPENAI_API_KEY else 'No'}")
+            print(f"Model: {self.OPENAI_MODEL}")
+        elif self.AI_PROVIDER == 'anthropic':
+            print(f"API Key Set: {'Yes' if self.ANTHROPIC_API_KEY else 'No'}")
+            print(f"Model: {self.ANTHROPIC_MODEL}")
+        
         print(f"Collector Name: {self.COLLECTOR_NAME}")
         print(f"Database Path: {self.DB_PATH}")
         print(f"Custody Log: {self.CUSTODY_LOG_PATH}")
@@ -65,3 +88,6 @@ class ForensicsConfig:
 
 # Alias for backwards compatibility
 Config = ForensicsConfig
+
+# Global config instance
+config = ForensicsConfig()
