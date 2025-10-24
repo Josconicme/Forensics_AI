@@ -56,8 +56,9 @@ source forensics_env/bin/activate  # Windows: forensics_env\Scripts\activate
 pip install -r requirements.txt
 
 # Configure environment
-cp .env.example .env
+ .env
 # Add your ANTHROPIC_API_KEY to .env
+# Add your OPENAI_API_KEY to .env
 ```
 
 ### Generate Mock Data
