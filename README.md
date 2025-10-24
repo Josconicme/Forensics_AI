@@ -56,9 +56,68 @@ source forensics_env/bin/activate  # Windows: forensics_env\Scripts\activate
 pip install -r requirements.txt
 
 # Configure environment
- .env
+ cp .env.example .env
 # Add your ANTHROPIC_API_KEY to .env
 # Add your OPENAI_API_KEY to .env
+# AI Provider Configuration
+# Choose one: anthropic or openai
+AI_PROVIDER=openai
+
+# Anthropic Configuration (if using Claude)
+ANTHROPIC_API_KEY=
+CLAUDE_MODEL=claude-sonnet-4-20250514
+
+# OpenAI Configuration (if using GPT)
+OPENAI_API_KEY=
+OPENAI_MODEL=gpt-5
+
+# Application Configuration
+APP_NAME=ForensicsAI
+APP_VERSION=1.0.0
+ENVIRONMENT=development
+
+# Evidence Storage
+EVIDENCE_STORAGE_PATH=./evidence_storage
+EVIDENCE_BACKUP_PATH=./evidence_backup
+
+# Chain of Custody
+CUSTODY_DB_PATH=./data/custody.db
+ENABLE_BLOCKCHAIN_AUDIT=false
+
+# Analysis Configuration
+MAX_PARALLEL_AGENTS=4
+ANALYSIS_TIMEOUT_SECONDS=300
+CONFIDENCE_THRESHOLD=0.7
+
+# Logging
+LOG_LEVEL=INFO
+LOG_FILE=./logs/forensics.log
+ENABLE_DEBUG_LOGGING=false
+
+# Report Generation
+REPORT_OUTPUT_PATH=./output
+REPORT_TEMPLATE_PATH=./templates
+GENERATE_PDF_REPORTS=false
+
+# Security
+ENABLE_ENCRYPTION=true
+ENCRYPTION_KEY_PATH=./keys/encryption.key
+HASH_ALGORITHM=sha256
+
+# Performance
+CHUNK_SIZE=1000
+MAX_EVIDENCE_SIZE_MB=100
+CACHE_ENABLED=true
+CACHE_TTL_SECONDS=3600
+
+# Mock Data Generation
+MOCK_DATA_PATH=./mock_data
+GENERATE_LARGE_DATASET=false
+
+# Legal Compliance
+JURISDICTION=US
+EVIDENCE_RETENTION_DAYS=2555
+ENABLE_PII_MASKING=true
 ```
 
 ### Generate Mock Data
