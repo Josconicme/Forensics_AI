@@ -13,9 +13,9 @@ An intelligent digital forensics platform that automates evidence collection, an
 ## 🏗️ System Architecture
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                  Evidence Collection Layer                   │
+│                  Evidence Collection Layer                  │
 │   Log Collector  │  File Collector  │  Network Collector    │
-└────────────────────────┬─────────────────────────────────────┘
+└────────────────────────┬─────────────────────────────────────
                          ▼
           ┌──────────────────────────────────┐
           │   Evidence Store + Chain of      │
@@ -56,8 +56,9 @@ source forensics_env/bin/activate  # Windows: forensics_env\Scripts\activate
 pip install -r requirements.txt
 
 # Configure environment
-cp .env.example .env
+ .env
 # Add your ANTHROPIC_API_KEY to .env
+# Add your OPENAI_API_KEY to .env
 ```
 
 ### Generate Mock Data
@@ -235,7 +236,7 @@ This project was developed as part of Ibn Sina Corporation's AI-Powered Digital 
 
 ## 👥 Author
 
-Developed for Ibn Sina Corporation Technical Assessment
+Ayokunle Ola developed for Ibn Sina Corporation by COGNNA
 
 ## 🙏 Technologies Used
 
